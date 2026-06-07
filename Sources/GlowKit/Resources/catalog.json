@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "rules": [
+    {
+      "id": "chrome",
+      "app": "Google Chrome",
+      "appBundleID": "com.google.Chrome",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser caches are rebuilt automatically.",
+      "paths": [
+        { "base": "appSupport", "glob": "Google/Chrome/*/Cache" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/Code Cache" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/GPUCache" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/Service Worker/CacheStorage" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/Cookies", "risk": "privacy" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/History", "risk": "privacy" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/Sessions", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/Local Storage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "brave",
+      "app": "Brave Browser",
+      "appBundleID": "com.brave.Browser",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser caches are rebuilt automatically.",
+      "paths": [
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Cache" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Code Cache" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/GPUCache" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Service Worker/CacheStorage" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Cookies", "risk": "privacy" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/History", "risk": "privacy" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Sessions", "risk": "stateful" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Local Storage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "edge",
+      "app": "Microsoft Edge",
+      "appBundleID": "com.microsoft.edgemac",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser caches are rebuilt automatically.",
+      "paths": [
+        { "base": "appSupport", "glob": "Microsoft Edge/*/Cache" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/Code Cache" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/GPUCache" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/Service Worker/CacheStorage" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/Cookies", "risk": "privacy" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/History", "risk": "privacy" }
+      ]
+    },
+    {
+      "id": "firefox",
+      "app": "Firefox",
+      "appBundleID": "org.mozilla.firefox",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser caches are rebuilt automatically.",
+      "paths": [
+        { "base": "appSupport", "glob": "Firefox/Profiles/*/cache2" },
+        { "base": "appSupport", "glob": "Firefox/Profiles/*/startupCache" },
+        { "base": "appSupport", "glob": "Firefox/Profiles/*/cookies.sqlite", "risk": "privacy" },
+        { "base": "appSupport", "glob": "Firefox/Profiles/*/sessionstore-backups", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "vscode",
+      "app": "Visual Studio Code",
+      "appBundleID": "com.microsoft.VSCode",
+      "requiresInstalled": true,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Code/CachedData" },
+        { "base": "appSupport", "glob": "Code/CachedExtensionVSIXs" },
+        { "base": "appSupport", "glob": "Code/Crashpad" },
+        { "base": "appSupport", "glob": "Code/Cache" },
+        { "base": "appSupport", "glob": "Code/Code Cache" },
+        { "base": "appSupport", "glob": "Code/GPUCache" },
+        { "base": "appSupport", "glob": "Code/WebStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "spotify",
+      "app": "Spotify",
+      "appBundleID": "com.spotify.client",
+      "requiresInstalled": true,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Streaming cache is re-downloaded on demand.",
+      "paths": [
+        { "base": "appSupport", "glob": "Spotify/PersistentCache" },
+        { "base": "caches", "glob": "com.spotify.client" }
+      ]
+    },
+    {
+      "id": "slack",
+      "app": "Slack",
+      "appBundleID": "com.tinyspeck.slackmacgap",
+      "requiresInstalled": true,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Slack/Cache" },
+        { "base": "appSupport", "glob": "Slack/Code Cache" },
+        { "base": "appSupport", "glob": "Slack/GPUCache" },
+        { "base": "appSupport", "glob": "Slack/Service Worker/CacheStorage" }
+      ]
+    },
+    {
+      "id": "discord",
+      "app": "Discord",
+      "appBundleID": "com.hnc.Discord",
+      "requiresInstalled": true,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "discord/Cache" },
+        { "base": "appSupport", "glob": "discord/Code Cache" },
+        { "base": "appSupport", "glob": "discord/GPUCache" }
+      ]
+    },
+    {
+      "id": "teams",
+      "app": "Microsoft Teams",
+      "appBundleID": "com.microsoft.teams2",
+      "requiresInstalled": true,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Microsoft/Teams/Cache" },
+        { "base": "appSupport", "glob": "Microsoft/Teams/Code Cache" },
+        { "base": "appSupport", "glob": "Microsoft/Teams/GPUCache" },
+        { "base": "appSupport", "glob": "Microsoft/Teams/Service Worker/CacheStorage" }
+      ]
+    },
+    {
+      "id": "zoom",
+      "app": "Zoom",
+      "appBundleID": "us.zoom.xos",
+      "requiresInstalled": true,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "caches", "glob": "us.zoom.xos" }
+      ]
+    },
+    {
+      "id": "dev.huggingface",
+      "app": "Hugging Face cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Models re-download on demand.",
+      "paths": [ { "base": "home", "glob": ".cache/huggingface" } ]
+    },
+    {
+      "id": "dev.npm",
+      "app": "npm cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Package cache is re-fetched on demand.",
+      "paths": [ { "base": "home", "glob": ".npm/_cacache" } ]
+    },
+    {
+      "id": "dev.uv",
+      "app": "uv cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Package cache is re-fetched on demand.",
+      "paths": [ { "base": "caches", "glob": "uv" } ]
+    },
+    {
+      "id": "dev.pnpm",
+      "app": "pnpm store",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Package store is re-fetched on demand.",
+      "paths": [ { "base": "home", "glob": "Library/pnpm/store" } ]
+    },
+    {
+      "id": "dev.precommit",
+      "app": "pre-commit cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Hook environments are rebuilt on demand.",
+      "paths": [ { "base": "home", "glob": ".cache/pre-commit" } ]
+    },
+    {
+      "id": "dev.pip",
+      "app": "pip cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Wheel cache is re-fetched on demand.",
+      "paths": [ { "base": "caches", "glob": "pip" } ]
+    },
+    {
+      "id": "dev.yarn",
+      "app": "Yarn cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Package cache is re-fetched on demand.",
+      "paths": [ { "base": "caches", "glob": "Yarn" } ]
+    },
+    {
+      "id": "dev.gradle",
+      "app": "Gradle cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Build cache is rebuilt on demand.",
+      "paths": [ { "base": "home", "glob": ".gradle/caches" } ]
+    },
+    {
+      "id": "dev.cocoapods",
+      "app": "CocoaPods cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Pod cache is re-fetched on demand.",
+      "paths": [ { "base": "caches", "glob": "CocoaPods" } ]
+    },
+    {
+      "id": "dev.cargo",
+      "app": "Cargo registry cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Crate cache is re-fetched on demand.",
+      "paths": [ { "base": "home", "glob": ".cargo/registry/cache" } ]
+    },
+    {
+      "id": "xcode.deriveddata",
+      "app": "Xcode DerivedData",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Rebuilt on next build.",
+      "paths": [ { "base": "xcode", "glob": "DerivedData" } ]
+    },
+    {
+      "id": "xcode.devicesupport",
+      "app": "Xcode iOS DeviceSupport",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Re-created when a device reconnects.",
+      "paths": [ { "base": "xcode", "glob": "iOS DeviceSupport" } ]
+    },
+    {
+      "id": "coresimulator.caches",
+      "app": "CoreSimulator caches",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Rebuilt by the simulator on demand.",
+      "paths": [ { "base": "home", "glob": "Library/Developer/CoreSimulator/Caches" } ]
+    },
+    {
+      "id": "system.diagnosticreports",
+      "app": "Diagnostic reports",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "systemLogs",
+      "risk": "safe",
+      "why": "Old crash reports are not needed to run apps.",
+      "paths": [ { "base": "logs", "glob": "DiagnosticReports" } ]
+    },
+    {
+      "id": "system.quicklook",
+      "app": "QuickLook thumbnails",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "systemLogs",
+      "risk": "safe",
+      "why": "Thumbnails regenerate on demand.",
+      "paths": [ { "base": "caches", "glob": "com.apple.QuickLook.thumbnailcache" } ]
+    }
+  ],
+  "projectRoots": ["~/projects"],
+  "projectArtifacts": [
+    "node_modules", ".venv", "venv", ".build", "dist", "build",
+    ".next", "__pycache__", "DerivedData", ".ruff_cache", "target"
+  ]
+}

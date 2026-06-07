@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:GlowUp}",
+            "name": "Debug GlowUp",
+            "target": "GlowUp",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug GlowUp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:GlowUp}",
+            "name": "Release GlowUp",
+            "target": "GlowUp",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release GlowUp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:GlowUp}",
+            "name": "Debug glowup",
+            "target": "glowup",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug glowup"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:GlowUp}",
+            "name": "Release glowup",
+            "target": "glowup",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release glowup"
+        }
+    ]
+}

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Catalog-driven list/dry-run fallback; needs jq. No deletion — read-only.
+set -euo pipefail
+
+CATALOG="${1:-$(dirname "$0")/../Sources/GlowKit/Resources/catalog.json}"
+HOME_DIR="${HOME}"
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "glowup.sh requires jq" >&2; exit 2
+fi
+
+base_dir() {
+  case "$1" in
+    home) echo "${HOME_DIR}" ;;
+    appSupport) echo "${HOME_DIR}/Library/Application Support" ;;
+    caches) echo "${HOME_DIR}/Library/Caches" ;;
+    logs) echo "${HOME_DIR}/Library/Logs" ;;
+    xcode) echo "${HOME_DIR}/Library/Developer/Xcode" ;;
+    *) echo "" ;;
+  esac
+}
+
+total=0
+while IFS=$'\t' read -r base glob risk; do
+  [ "${risk}" = "safe" ] || continue
+  root="$(base_dir "${base}")"
+  [ -n "${root}" ] || continue
+  # Only expand safe, non-recursive globs; '*' is a single segment.
+  prefix="${glob%%\**}"; rest="${glob#*\*}"; matches=()
+  if [ "${glob}" = "${prefix}" ]; then matches=("${root}/${glob}")
+  else for d in "${root}/${prefix}"*; do [ -e "${d}${rest}" ] && matches+=("${d}${rest}"); done; fi
+  [ "${#matches[@]}" -gt 0 ] || continue
+  for path in "${matches[@]}"; do
+    [ -e "${path}" ] || continue
+    size=$(du -sk "${path}" 2>/dev/null | cut -f1 || echo 0)
+    total=$((total + size))
+    echo "  [${risk}] ${path}"
+  done
+done < <(jq -r '.rules[] | .risk as $r | .paths[] | [.base, .glob, (.risk // $r)] | @tsv' "${CATALOG}")
+
+echo "Would free ~$((total / 1024)) MB (dry run — nothing was moved)."

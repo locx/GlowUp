@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: [ "v*" ]
+
+# Requires maintainer-provided secrets:
+#   MACOS_CERT_P12_BASE64, MACOS_CERT_PASSWORD, KEYCHAIN_PASSWORD,
+#   AC_API_KEY_ID, AC_API_ISSUER_ID, AC_API_KEY_P8_BASE64, DEVELOPER_ID_APP
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build release
+        run: swift build -c release --product GlowUp
+
+      - name: Assemble app bundle + DMG
+        run: bash packaging/make-dmg.sh
+
+      - name: Import signing certificate
+        env:
+          CERT: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          CERT_PW: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KC_PW: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$CERT" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p "$KC_PW" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KC_PW" build.keychain
+          security import /tmp/cert.p12 -k build.keychain -P "$CERT_PW" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" build.keychain
+
+      - name: Codesign (hardened runtime)
+        env:
+          DEV_ID: ${{ secrets.DEVELOPER_ID_APP }}
+        run: |
+          codesign --force --options runtime --timestamp \
+            --entitlements packaging/GlowUp.entitlements \
+            --sign "$DEV_ID" dist/GlowUp.app
+
+      - name: Notarize + staple
+        env:
+          KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          ISSUER: ${{ secrets.AC_API_ISSUER_ID }}
+          KEY_P8: ${{ secrets.AC_API_KEY_P8_BASE64 }}
+        run: |
+          echo "$KEY_P8" | base64 --decode > /tmp/ac_key.p8
+          xcrun notarytool submit dist/GlowUp.dmg \
+            --key /tmp/ac_key.p8 --key-id "$KEY_ID" --issuer "$ISSUER" --wait
+          xcrun stapler staple dist/GlowUp.dmg
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/GlowUp.dmg
