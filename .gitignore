@@ -8,3 +8,5 @@ dist/
 *.dmg
 packaging/AppIcon.icns
 packaging/GlowUp.iconset/
+docs/
+*.md
