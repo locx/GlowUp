@@ -52,6 +52,19 @@ final class DenyListTests: XCTestCase {
     XCTAssertTrue(DenyList.vetoes(candidate, home: realHome))
   }
 
+  // A credential nested two levels below the candidate dir must still veto it.
+  func test_vetoesDirectoryWithDeeplyNestedCredentialFile() throws {
+    let realHome = URL(fileURLWithPath: NSTemporaryDirectory())
+      .appending(path: "glow-deny-deep-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: realHome) }
+    let candidate = realHome.appending(path: "Library/Caches/FooApp")
+    try FileManager.default.createDirectory(
+      at: candidate.appending(path: "config/sub"), withIntermediateDirectories: true)
+    try Data().write(to: candidate.appending(path: "config/sub/id_rsa"))
+
+    XCTAssertTrue(DenyList.vetoes(candidate, home: realHome))
+  }
+
   func test_vetoesParentTraversal() {
     let p = URL(fileURLWithPath: "/Users/test/Library/Caches/../../Documents")
     XCTAssertTrue(DenyList.vetoes(p, home: home))

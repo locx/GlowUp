@@ -56,10 +56,10 @@ public enum DenyList {
     return false
   }
 
-  // Two child levels, probed fresh on every veto — a cached verdict could miss a newly added
+  // Three child levels, probed fresh on every veto — a cached verdict could miss a newly added
   // credential. Symlinked children are skipped: trashing the parent leaves a link's target untouched.
   private static func hasCredentialChild(_ dir: URL, depth: Int) -> Bool {
-    guard depth < 2 else { return false }
+    guard depth < 3 else { return false }
     let fm = FileManager.default
     guard let children = try? fm.contentsOfDirectory(atPath: dir.path) else { return false }
     for child in children {
