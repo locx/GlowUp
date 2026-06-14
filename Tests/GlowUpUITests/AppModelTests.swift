@@ -149,6 +149,21 @@ final class AppModelTests: XCTestCase {
     XCTAssertEqual(RestoreStore(storeURL: store).batches().count, 1)
   }
 
+  // The quick-clean trash boundary must spare non-safe items even if handed in directly.
+  func test_quickCleanNeverTrashesNonSafeItem() async throws {
+    let m = try model()
+    let safe = home.appending(path: "Library/Application Support/Code/CachedData")
+    let stateful = home.appending(path: "Library/Application Support/Code/WebStorage")
+    // Hand-built mixed input: bypasses the scan-time filter to exercise the boundary guard.
+    await m.quickClean([(safe, 8192, .safe), (stateful, 4096, .stateful)])
+    // Safe item trashed; stateful item spared and never recorded.
+    XCTAssertFalse(FileManager.default.fileExists(atPath: safe.path))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: stateful.path))
+    XCTAssertFalse(RestoreStore(storeURL: store).batches().contains { b in
+      b.items.contains { $0.originalPath == stateful.path }
+    }, "stateful item must never appear in a quick-clean batch")
+  }
+
   func test_defaultCleanTrashesOnlySafe() async throws {
     let m = try model()
     // Include all risks so both safe and stateful candidates are present.

@@ -41,7 +41,9 @@ while IFS=$'\t' read -r base glob risk; do
   [ "${#matches[@]}" -gt 0 ] || continue
   for path in "${matches[@]}"; do
     [ -e "${path}" ] || continue
-    size=$(du -sk "${path}" 2>/dev/null | cut -f1 || echo 0)
+    size=$(du -sk "${path}" 2>/dev/null | cut -f1)
+    # Empty/non-numeric du output would crash the arithmetic under `set -e`; treat it as 0.
+    [ -n "${size}" ] && [ "${size}" -eq "${size}" ] 2>/dev/null || size=0
     total=$((total + size))
     echo "  [${risk}] ${path}"
   done

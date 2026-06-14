@@ -151,7 +151,7 @@ public final class AppModel: ObservableObject {
 
   /// Safe-tier scan for the menu-bar quick action; review state (candidates, phase) stays untouched
   /// so an open Advanced result set isn't clobbered.
-  public func quickScanSafe() async -> [(url: URL, bytes: Int64)] {
+  public func quickScanSafe() async -> [(url: URL, bytes: Int64, risk: Risk)] {
     guard !quickCleanBusy, phase != .scanning, phase != .cleaning, !restoring else { return [] }
     quickCleanBusy = true
     defer { quickCleanBusy = false }
@@ -161,22 +161,26 @@ public final class AppModel: ObservableObject {
                              includeRisks: tiers, advanced: false)
     }.value
     let sizes = await SizeMeasurer.measure(found.map(\.url))
-    return found.compactMap { c -> (url: URL, bytes: Int64)? in
+    return found.compactMap { c -> (url: URL, bytes: Int64, risk: Risk)? in
       let bytes = sizes[c.url] ?? 0
-      return bytes > 0 ? (c.url, bytes) : nil
+      return bytes > 0 ? (c.url, bytes, c.risk) : nil
     }
   }
 
   /// Trashes a quick-scan result; records history and totals without touching review state.
-  public func quickClean(_ items: [(url: URL, bytes: Int64)]) async {
+  public func quickClean(_ items: [(url: URL, bytes: Int64, risk: Risk)]) async {
     guard !quickCleanBusy, phase != .cleaning, !restoring else { return }
     quickCleanBusy = true
     defer { quickCleanBusy = false }
     lastRestore = nil
     lastCleanWarning = nil
+    // Quick action is always non-advanced; enforce the tier policy at the boundary so a stale
+    // or hand-built input can never trash privacy/stateful data the scan filter alone would miss.
+    let tiers = Risk.cleanTiers(advanced: false)
+    let toClean = items.filter { tiers.contains($0.risk) }.map { ($0.url, $0.bytes) }
     let mover = self.mover
     let result = await Task.detached(priority: .userInitiated) {
-      Trasher(mover: mover).trash(items)
+      Trasher(mover: mover).trash(toClean)
     }.value
     lastCleanFailures = result.failures.count
     recordHistory(result.trashed)

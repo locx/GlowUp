@@ -45,14 +45,19 @@ public struct RestoreStore {
   public func batches() -> [CleanupBatch] { load().reversed() }
 
   // Drop a batch — a fully-restored cleanup is no longer in the Trash, so it must leave history.
-  public func remove(_ id: String) {
+  // Returns whether the prune was persisted, so a swallowed write failure can't leave a stale batch.
+  @discardableResult
+  public func remove(_ id: String) -> Bool {
     let remaining = load().filter { $0.id != id }
-    guard let data = try? JSONEncoder().encode(remaining) else { return }
-    try? writeCoordinated(data, intent: .forReplacing)
+    guard let data = try? JSONEncoder().encode(remaining) else { return false }
+    do { try writeCoordinated(data, intent: .forReplacing); return true }
+    catch { return false }
   }
 
   /// Moves a batch's items back and prunes the store to what is still in the Trash:
   /// the batch is removed on full success, or rewritten with only the failed items.
+  /// If every item fails, the batch is deliberately retained whole — those items are still
+  /// in the Trash and remain restorable, so dropping it would lose recoverable history.
   public func restore(_ batch: CleanupBatch) -> (restored: Int, failed: [(TrashedItem, Error)]) {
     let fm = FileManager.default
     var restored = 0
@@ -90,12 +95,15 @@ public struct RestoreStore {
     return (restored, failed)
   }
 
-  private func replaceItems(_ id: String, with items: [TrashedItem]) {
+  // Returns whether the rewrite was persisted, so a swallowed failure can't leave stale items.
+  @discardableResult
+  private func replaceItems(_ id: String, with items: [TrashedItem]) -> Bool {
     var all = load()
-    guard let i = all.firstIndex(where: { $0.id == id }) else { return }
+    guard let i = all.firstIndex(where: { $0.id == id }) else { return false }
     all[i] = CleanupBatch(id: all[i].id, date: all[i].date, items: items)
-    guard let data = try? JSONEncoder().encode(all) else { return }
-    try? writeCoordinated(data, intent: .forReplacing)
+    guard let data = try? JSONEncoder().encode(all) else { return false }
+    do { try writeCoordinated(data, intent: .forReplacing); return true }
+    catch { return false }
   }
 
   private func load() -> [CleanupBatch] {
