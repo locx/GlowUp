@@ -57,6 +57,29 @@ final class CatalogLoaderTests: XCTestCase {
     }
   }
 
+  func test_rejectsInvalidProjectRoots() {
+    for bad in ["", "/", "~", "~/a/../b", "Dev/../etc"] {
+      let s = #"{ "schemaVersion": 1, "projectRoots": ["\#(bad)"], "projectArtifacts": [], "rules": [] }"#
+      XCTAssertThrowsError(try decode(s), "projectRoot \(bad) should be rejected") {
+        XCTAssertEqual($0 as? CatalogError, .invalidProjectRoot(bad))
+      }
+    }
+  }
+
+  func test_rejectsEmptyProjectArtifact() {
+    let s = #"{ "schemaVersion": 1, "projectRoots": [], "projectArtifacts": [""], "rules": [] }"#
+    XCTAssertThrowsError(try decode(s)) {
+      XCTAssertEqual($0 as? CatalogError, .invalidProjectArtifact(""))
+    }
+  }
+
+  func test_acceptsValidProjectRootsAndArtifacts() throws {
+    let s = #"{ "schemaVersion": 1, "projectRoots": ["~/Developer", "~/Projects"], "projectArtifacts": ["node_modules", ".build"], "rules": [] }"#
+    let cat = try decode(s)
+    XCTAssertEqual(cat.projectRoots.count, 2)
+    XCTAssertEqual(cat.projectArtifacts.count, 2)
+  }
+
   func test_allowsWildcardInLaterSegment() throws {
     // A '*' in a non-first segment (e.g. "Google/Chrome/*/Cache") must be accepted.
     let s = #"{ "schemaVersion": 1, "projectRoots": [], "projectArtifacts": [], "rules": [ {"id":"a","category":"c","risk":"safe","why":"w","paths":[{"base":"caches","glob":"Google/Chrome/*/Cache"}]} ] }"#

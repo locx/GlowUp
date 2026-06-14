@@ -4,6 +4,8 @@ public enum CatalogError: Error, Equatable {
   case unsupportedSchema(Int)
   case duplicateRuleID(String)
   case invalidGlob(String)
+  case invalidProjectRoot(String)
+  case invalidProjectArtifact(String)
   case missingResource
 }
 
@@ -46,6 +48,16 @@ public enum CatalogLoader {
               !firstSegmentHasWildcard
         else { throw CatalogError.invalidGlob(g) }
       }
+    }
+    // The advanced project walk is the broadest traversal, so its roots get parse-time validation:
+    // a "/", bare "~", empty, or ".."-bearing root would start the depth-6 walk at root/home.
+    for root in cat.projectRoots {
+      guard !root.isEmpty, root != "/", root != "~",
+            !root.split(separator: "/").contains("..")
+      else { throw CatalogError.invalidProjectRoot(root) }
+    }
+    for artifact in cat.projectArtifacts where artifact.isEmpty {
+      throw CatalogError.invalidProjectArtifact(artifact)
     }
     return cat
   }

@@ -141,6 +141,59 @@ final class RestoreStoreTests: XCTestCase {
     XCTAssertEqual(try String(contentsOf: store), "{ not json")
   }
 
+  // Concurrent record/remove/restore against ONE store must never lose an update or leave the file
+  // undecodable: the file must always decode (or the op aborts cleanly via .historyUnreadable), and
+  // every batch a winning record() persisted that was never removed must survive.
+  func test_concurrentWritersNeverLoseUpdatesAndFileStaysDecodable() throws {
+    let s = RestoreStore(storeURL: store)
+    let workers = 8
+    let perWorker = 40
+    let group = DispatchGroup()
+    let queue = DispatchQueue(label: "stress", attributes: .concurrent)
+
+    // record() ids that did not throw; remove() ids requested. Guarded by their own lock.
+    let lock = NSLock()
+    var recorded = Set<String>()
+    var removed = Set<String>()
+
+    for w in 0..<workers {
+      group.enter()
+      queue.async {
+        for i in 0..<perWorker {
+          let id = "w\(w)-\(i)"
+          do {
+            try s.record(self.batch(id, []))
+            lock.lock(); recorded.insert(id); lock.unlock()
+          } catch {
+            // .historyUnreadable is a clean abort, never a silent overwrite — acceptable here.
+          }
+          // Interleave a remove of an earlier id and a restore of an empty (no-op) batch.
+          if i > 0 {
+            let target = "w\(w)-\(i - 1)"
+            if s.remove(target) { lock.lock(); removed.insert(target); lock.unlock() }
+          }
+          _ = s.restore(self.batch("absent-\(w)-\(i)", []))
+        }
+        group.leave()
+      }
+    }
+    group.wait()
+
+    // The file must still decode — torn/lost writes would make this throw or return stale junk.
+    let final = Set(s.batches().map(\.id))
+
+    // No lost updates: every id that a record() reported success for, and that was never removed,
+    // must be present in the final decoded store.
+    lock.lock(); let expected = recorded.subtracting(removed); lock.unlock()
+    for id in expected {
+      XCTAssertTrue(final.contains(id), "lost a recorded-and-not-removed batch: \(id)")
+    }
+    // And nothing a remove() reported success for may linger.
+    for id in removed {
+      XCTAssertFalse(final.contains(id), "removed batch reappeared: \(id)")
+    }
+  }
+
   func test_restoreFailsWhenTrashedFileMtimeDiffersFromRecorded() throws {
     // A different file placed at the reused Trash path must not be moved.
     let original = dir.appending(path: "orig.txt")
