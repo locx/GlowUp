@@ -168,6 +168,21 @@ final class AppModelTests: XCTestCase {
       atPath: home.appending(path: "Library/Application Support/Code/WebStorage").path))
   }
 
+  func test_cleanSelectedNeverTrashesStatefulEvenIfSelected() async throws {
+    let m = try model()
+    await m.scan(includeRisks: Set(Risk.allCases))
+    let statefulCandidate = try XCTUnwrap(m.candidates.first { $0.risk == .stateful })
+    // Force the stateful item into the selection; the tier filter must still spare it.
+    m.selected = Set(m.candidates.map(\.id))
+    await m.cleanSelected()
+    // The stateful WebStorage path stays on disk despite being selected.
+    XCTAssertTrue(FileManager.default.fileExists(
+      atPath: home.appending(path: "Library/Application Support/Code/WebStorage").path))
+    XCTAssertFalse(RestoreStore(storeURL: store).batches().contains { b in
+      b.items.contains { $0.originalPath == statefulCandidate.url.path }
+    }, "stateful candidate must never appear in a recorded cleanup batch")
+  }
+
   func test_lastFreedCountsSamePathOnce() async throws {
     // Two rules that both resolve to the same URL — dedupe should keep one; freed == that size.
     let catalogJSON = Data("""
@@ -260,7 +275,14 @@ final class AppModelTests: XCTestCase {
   }
 
   func test_cleanReportsTrashFailures() async throws {
-    // Mover that throws for "WebStorage" but succeeds otherwise — exercises failure recording.
+    // Two safe caches: the mover throws on Cache2 and succeeds on CachedData — exercises failure recording
+    // through the actually-cleanable path (the tier filter spares stateful items entirely).
+    let fm = FileManager.default
+    try fm.createDirectory(
+      at: home.appending(path: "Library/Application Support/Code/Cache2"),
+      withIntermediateDirectories: true)
+    try Data(repeating: 0xEF, count: 4096).write(
+      to: home.appending(path: "Library/Application Support/Code/Cache2/blob"))
     let catalogJSON = Data("""
     {
       "schemaVersion": 1,
@@ -274,7 +296,7 @@ final class AppModelTests: XCTestCase {
         "why": "w",
         "paths": [
           { "base": "appSupport", "glob": "Code/CachedData" },
-          { "base": "appSupport", "glob": "Code/WebStorage", "risk": "stateful" }
+          { "base": "appSupport", "glob": "Code/Cache2" }
         ]
       }],
       "projectRoots": [],
@@ -288,15 +310,15 @@ final class AppModelTests: XCTestCase {
                      mover: PartialMover(bin: bin),
                      storeURL: store)
 
-    // Scan with all risks so both CachedData (safe) and WebStorage (stateful) are candidates.
-    await m.scan(includeRisks: Set(Risk.allCases))
+    // Both safe caches are candidates.
+    await m.scan(includeRisks: Risk.scanTiers(advanced: false))
     XCTAssertEqual(m.candidates.count, 2)
 
     // Select all candidates so both are attempted.
     m.selected = Set(m.candidates.map(\.id))
     await m.cleanSelected()
 
-    // WebStorage throws → at least one failure recorded.
+    // Cache2 throws → at least one failure recorded.
     XCTAssertGreaterThanOrEqual(m.lastCleanFailures, 1)
     // CachedData succeeds → freed bytes > 0.
     XCTAssertGreaterThan(m.lastFreed, 0)
@@ -318,12 +340,12 @@ struct BinMover: ItemMover {
     return dest
   }
 }
-// Succeeds for all paths except those whose last component is "WebStorage".
+// Succeeds for all paths except those whose last component is "Cache2".
 struct PartialMover: ItemMover {
   let bin: URL
   struct FakeError: Error {}
   func trash(_ url: URL) throws -> URL {
-    if url.lastPathComponent == "WebStorage" { throw FakeError() }
+    if url.lastPathComponent == "Cache2" { throw FakeError() }
     let dest = bin.appending(path: "\(UUID().uuidString)-\(url.lastPathComponent)")
     try FileManager.default.moveItem(at: url, to: dest)
     return dest

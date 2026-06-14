@@ -121,7 +121,9 @@ public final class AppModel: ObservableObject {
     lastRestore = nil
     lastCleanWarning = nil
     phase = .cleaning
-    let toClean = candidates.filter { selected.contains($0.id) }
+    // Privacy/stateful must never be trashed even if selected — enforce the tier policy at the boundary.
+    let tiers = Risk.cleanTiers(advanced: advanced)
+    let toClean = candidates.filter { selected.contains($0.id) && tiers.contains($0.risk) }
     let items = toClean.map { ($0.url, sizes[$0.id] ?? 0) }
     let result = Trasher(mover: mover).trash(items)
     lastCleanFailures = result.failures.count
