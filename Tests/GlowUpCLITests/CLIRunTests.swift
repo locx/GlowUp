@@ -44,11 +44,12 @@ final class CLIRunTests: XCTestCase {
 
   // Catalog that covers both a safe-tier path AND a privacy-tier path, plus project roots.
   private func catalogJSON() -> Catalog {
-    let projectsPath = home.appending(path: "projects").path
+    // Tilde-relative root (matches production catalog.json and CatalogLoader's no-absolute guard);
+    // CLI expands "~" against the injected test home, so it still points at <home>/projects.
     let s = """
     {
       "schemaVersion": 1,
-      "projectRoots": ["\(projectsPath)"],
+      "projectRoots": ["~/projects"],
       "projectArtifacts": ["node_modules", ".build", "DerivedData"],
       "rules": [
         {

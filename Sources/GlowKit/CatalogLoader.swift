@@ -50,9 +50,9 @@ public enum CatalogLoader {
       }
     }
     // The advanced project walk is the broadest traversal, so its roots get parse-time validation:
-    // a "/", bare "~", empty, or ".."-bearing root would start the depth-6 walk at root/home.
+    // any absolute root would start the depth-6 walk outside $HOME; bare "~"/empty/".." also escape.
     for root in cat.projectRoots {
-      guard !root.isEmpty, root != "/", root != "~",
+      guard !root.isEmpty, !root.hasPrefix("/"), root != "~",
             !root.split(separator: "/").contains("..")
       else { throw CatalogError.invalidProjectRoot(root) }
     }

@@ -33,7 +33,9 @@ public enum SystemCacheCleaner {
     clean(topLevelEntries(), runner: runner)
   }
 
-  private static func topLevelEntries() -> [URL] {
+  // `root` is injectable only so tests can exercise the runner seam against a temp dir; production
+  // call sites default to /Library/Caches, leaving real behavior unchanged.
+  private static func topLevelEntries(root: String = root) -> [URL] {
     let fm = FileManager.default
     guard let names = try? fm.contentsOfDirectory(atPath: root) else { return [] }
     return names.filter { !$0.hasPrefix(".") }
@@ -41,17 +43,17 @@ public enum SystemCacheCleaner {
   }
 
   @discardableResult
-  static func clean(_ urls: [URL], runner: RootCommandRunner) -> Bool {
-    guard let cmd = removalCommand(urls) else { return false }
+  static func clean(_ urls: [URL], runner: RootCommandRunner, root: String = root) -> Bool {
+    guard let cmd = removalCommand(urls, root: root) else { return false }
     return runner.runAsRoot(cmd)
   }
 
-  // Refuse unless EVERY path is a direct child of /Library/Caches — bounds a root rm to that dir.
-  static func removalCommand(_ urls: [URL]) -> String? {
+  // Refuse unless EVERY path is a direct child of `root` — bounds a root rm to that dir.
+  static func removalCommand(_ urls: [URL], root: String = root) -> String? {
     guard !urls.isEmpty else { return nil }
     var args: [String] = []
     for u in urls {
-      // Resolve symlinks before the scope check so a link whose target leaves Caches can't pass.
+      // Resolve symlinks before the scope check so a link whose target leaves the root can't pass.
       let p = PathUtil.canonicalPath(u)
       guard p.hasPrefix(root + "/"),
             URL(fileURLWithPath: p).deletingLastPathComponent().path == root,

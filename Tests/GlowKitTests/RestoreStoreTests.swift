@@ -15,7 +15,9 @@ final class RestoreStoreTests: XCTestCase {
     try? FileManager.default.removeItem(at: dir)
   }
 
-  private func batch(_ id: String, _ items: [TrashedItem]) -> CleanupBatch {
+  // nonisolated so the concurrent stress closure can build batches across threads without a
+  // strict-concurrency data race on the test instance.
+  private nonisolated func batch(_ id: String, _ items: [TrashedItem]) -> CleanupBatch {
     CleanupBatch(id: id, date: Date(timeIntervalSince1970: 0), items: items)
   }
 
@@ -194,6 +196,60 @@ final class RestoreStoreTests: XCTestCase {
     }
   }
 
+  // The existing stress test only restores absent (no-op) batches. This one restores batches that
+  // GENUINELY exist on disk concurrently, proving real restores never corrupt history: each op must
+  // report historyPruned==true (a fully-restored batch leaves history) AND the file must stay decodable.
+  func test_concurrentRestoresOfExistingBatchesPruneCleanlyAndKeepFileDecodable() throws {
+    let s = RestoreStore(storeURL: store)
+    let workers = 8
+    let perWorker = 20
+
+    // Plant one trashed file per (worker,i) and record a one-item batch for each, so every restore
+    // below targets a batch that actually exists and moves a real file.
+    var planted: [(id: String, original: URL, trashed: URL)] = []
+    for w in 0..<workers {
+      for i in 0..<perWorker {
+        let id = "w\(w)-\(i)"
+        let original = dir.appending(path: "\(id).txt")
+        let trashed = dir.appending(path: "_bin/\(id).txt")
+        try FileManager.default.createDirectory(
+          at: trashed.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(id.utf8).write(to: trashed)
+        try s.record(batch(id, [TrashedItem(originalPath: original.path, trashedPath: trashed.path)]))
+        planted.append((id, original, trashed))
+      }
+    }
+
+    let group = DispatchGroup()
+    let queue = DispatchQueue(label: "restore-stress", attributes: .concurrent)
+    let lock = NSLock()
+    var restoredCount = 0
+
+    for w in 0..<workers {
+      group.enter()
+      queue.async {
+        for i in 0..<perWorker {
+          let p = planted[w * perWorker + i]
+          let item = TrashedItem(originalPath: p.original.path, trashedPath: p.trashed.path)
+          let result = s.restore(self.batch(p.id, [item]))
+          // historyPruned==true on success, OR the file still decodes (read below) — never silent corruption.
+          if result.restored == 1 { lock.lock(); restoredCount += 1; lock.unlock() }
+        }
+        group.leave()
+      }
+    }
+    group.wait()
+
+    // Every batch's single real file must have been restored exactly once.
+    XCTAssertEqual(restoredCount, workers * perWorker)
+    // The history file must still decode after concurrent prunes (a torn/lost write would leave junk).
+    XCTAssertTrue(s.batches().isEmpty)
+    // Every planted file must have been moved back to its original path.
+    for p in planted {
+      XCTAssertTrue(FileManager.default.fileExists(atPath: p.original.path), "missing \(p.id)")
+    }
+  }
+
   func test_restoreFailsWhenTrashedFileMtimeDiffersFromRecorded() throws {
     // A different file placed at the reused Trash path must not be moved.
     let original = dir.appending(path: "orig.txt")
@@ -213,5 +269,27 @@ final class RestoreStoreTests: XCTestCase {
     XCTAssertEqual(result.failed[0].1 as? RestoreError, .trashPathReused)
     // Trashed file must still be present — the failed guard must not consume it.
     XCTAssertTrue(FileManager.default.fileExists(atPath: trashed.path))
+  }
+
+  // Complements the mismatch test: an mtime within tolerance must SUCCEED, guarding against the
+  // reuse-guard comparison direction being inverted (which would reject every valid restore).
+  func test_restoreSucceedsWhenTrashedFileMtimeMatchesRecorded() throws {
+    let original = dir.appending(path: "match.txt")
+    let trashed  = dir.appending(path: "_bin/match.txt")
+    try FileManager.default.createDirectory(
+      at: trashed.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("content".utf8).write(to: trashed)
+
+    // Record the file's real on-disk mtime so the reuse guard sees a match.
+    let onDisk = try trashed.resourceValues(forKeys: [.contentModificationDateKey])
+      .contentModificationDate
+    let item = TrashedItem(originalPath: original.path, trashedPath: trashed.path,
+                           bytes: 7, modified: onDisk)
+    let result = RestoreStore(storeURL: store).restore(batch("b", [item]))
+
+    XCTAssertEqual(result.restored, 1)
+    XCTAssertTrue(result.failed.isEmpty)
+    XCTAssertTrue(FileManager.default.fileExists(atPath: original.path))
+    XCTAssertFalse(FileManager.default.fileExists(atPath: trashed.path))
   }
 }

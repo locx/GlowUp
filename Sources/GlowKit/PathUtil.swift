@@ -11,8 +11,7 @@ public enum PathUtil {
     return URL(fileURLWithPath: path)
   }
 
-  // Resolve-only canonicalization: follow symlinks without the lexical `..`-collapse that
-  // `standardizedFileURL` would apply. DenyList resolves home+candidate symmetrically and stays inline.
-  public static func canonical(_ url: URL) -> URL { url.resolvingSymlinksInPath() }
+  // Follow symlinks without the lexical `..`-collapse that `standardizedFileURL` would apply,
+  // so a planted `..` survives to the deny-list rather than being silently resolved away.
   public static func canonicalPath(_ url: URL) -> String { url.resolvingSymlinksInPath().path }
 }

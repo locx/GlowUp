@@ -59,6 +59,27 @@ final class SystemCacheCleanerTests: XCTestCase {
     XCTAssertEqual(r.received, "/bin/rm -rf '/Library/Caches/com.foo'")
   }
 
+  // Proves the ROOT runner seam end-to-end without touching real system caches: point the
+  // injectable root at a temp dir with a planted child and assert the spy fired a scoped /bin/rm.
+  func test_cleanFiresScopedRemovalAgainstInjectedRoot() throws {
+    let fm = FileManager.default
+    let rootURL = URL(fileURLWithPath: NSTemporaryDirectory())
+      .appending(path: "glow-syscache-\(UUID().uuidString)")
+    try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? fm.removeItem(at: rootURL) }
+    let child = rootURL.appending(path: "planted")
+    try fm.createDirectory(at: child, withIntermediateDirectories: true)
+
+    // Resolve symlinks (NSTemporaryDirectory lives under /var -> /private/var) so the injected
+    // root matches the scope check, which compares against the symlink-resolved child path.
+    let resolvedRoot = rootURL.resolvingSymlinksInPath().path
+    let resolvedChild = child.resolvingSymlinksInPath().path
+
+    let r = FakeRunner()
+    XCTAssertTrue(SystemCacheCleaner.clean([child], runner: r, root: resolvedRoot))
+    XCTAssertEqual(r.received, "/bin/rm -rf '\(resolvedChild)'")
+  }
+
   func test_removalCommandRejectsSymlinkResolvingOutsideScope() throws {
     // A direct-child symlink whose target leaves /Library/Caches must be refused: the
     // scope check resolves symlinks, so the link's own direct-child path can't smuggle it through.

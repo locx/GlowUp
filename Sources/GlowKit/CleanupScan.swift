@@ -32,12 +32,13 @@ public enum CleanupScan {
   // True when a sorted catalog path equals, is an ancestor of, or is a descendant of `sp` — the
   // same bidirectional nesting the previous linear filter caught, but via binary search.
   private static func overlapsCatalog(_ sp: String, _ sortedCatalog: [String]) -> Bool {
-    // Catalog ancestor-or-equal of sp: an exact match, or sp lies under a catalog dir.
+    // Catalog ancestor-or-equal of sp: an exact match, or sp lies under a catalog dir. The walk
+    // self-terminates at "/" — a top-level segment strips to "/", which no catalog path ever is.
     var ancestor = sp
-    while true {
+    while ancestor != "/" {
       if binaryContains(sortedCatalog, ancestor) { return true }
-      guard let slash = ancestor.lastIndex(of: "/"), slash != ancestor.startIndex else { break }
-      ancestor = String(ancestor[ancestor.startIndex..<slash])
+      guard let slash = ancestor.lastIndex(of: "/") else { break }
+      ancestor = slash == ancestor.startIndex ? "/" : String(ancestor[ancestor.startIndex..<slash])
     }
     // Catalog strict descendant of sp: first path >= "sp/" must start with "sp/".
     let prefix = sp + "/"

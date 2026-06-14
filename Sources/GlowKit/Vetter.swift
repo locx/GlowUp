@@ -8,17 +8,15 @@ public enum Vetter {
     // Memoize the data-store probe per unique resolved path so duplicate swept hits scan disk once.
     var storeCache: [String: Bool] = [:]
     func holdsStore(_ url: URL) -> Bool {
-      let resolved = PathUtil.canonical(url)
+      let resolved = url.resolvingSymlinksInPath()
       let key = resolved.path
       if let cached = storeCache[key] { return cached }
       let result = DataStoreGuard.holdsDataStore(resolved)
       storeCache[key] = result
       return result
     }
-    // Memoize the deny-list verdict per scan so the same path's credential probe runs disk once,
-    // not twice (Resolver already vetted catalog hits) and not per duplicate. Key on the RAW input
-    // path: DenyList short-circuits on a literal ".." before it resolves symlinks, so two distinct
-    // inputs that resolve alike must not share a verdict.
+    // Key on the RAW input path: DenyList short-circuits on a literal ".." before resolving
+    // symlinks, so two distinct inputs that resolve alike must not share a cached verdict.
     var vetoCache: [String: Bool] = [:]
     func vetoes(_ url: URL) -> Bool {
       let key = url.path

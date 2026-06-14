@@ -82,6 +82,9 @@ final class CleanupScanTests: XCTestCase {
     let out = CleanupScan.candidates(
       home: home, catalog: cat, inventory: StubInventory(),
       includeRisks: Risk.scanTiers(advanced: true), advanced: true)
+    // Exactly the three catalog survivors — every swept overlap (descendant + ancestor) is dropped,
+    // and no spurious extra candidate slips through. Total-count guard, not just the two absences.
+    XCTAssertEqual(out.count, 3)
     let paths = Set(out.map { $0.url.resolvingSymlinksInPath().path })
     let asup = home.appending(path: "Library/Application Support").resolvingSymlinksInPath().path
     let caches = home.appending(path: "Library/Caches").resolvingSymlinksInPath().path
@@ -92,5 +95,36 @@ final class CleanupScanTests: XCTestCase {
     XCTAssertTrue(paths.contains("\(caches)/Vendor/Inner"), "catalog Vendor/Inner survives")
     XCTAssertFalse(paths.contains("\(caches)/Vendor"),
                    "swept ancestor of a catalog path must be dropped")
+  }
+
+  // Pins swept-scanner category strings, which catalog-only CatalogContentTests cannot cover. A
+  // scanner emitting an off-list category (a tier/relabel drift) would surface here.
+  func test_sweptCandidateCategoriesAreWithinAllowedSet() throws {
+    let fm = FileManager.default
+    try fm.createDirectory(
+      at: home.appending(path: "Library/Application Support/OldLeftover"),
+      withIntermediateDirectories: true)
+    try fm.createDirectory(
+      at: home.appending(path: "Library/Caches/SomeVendorCache"),
+      withIntermediateDirectories: true)
+    try Data(repeating: 9, count: 1024).write(
+      to: home.appending(path: "Library/Caches/SomeVendorCache/blob"))
+    try fm.createDirectory(at: home.appending(path: "Library/Logs/SomeLog"),
+                           withIntermediateDirectories: true)
+    try Data(repeating: 9, count: 1024).write(
+      to: home.appending(path: "Library/Logs/SomeLog/log.txt"))
+
+    let allowed: Set<String> = [
+      "libraryOrphans", "workspaceOrphans", "duplicateExtensions", "appCaches", "systemLogs",
+    ]
+    // Empty catalog so every surviving candidate originates from a swept scanner.
+    let cat = Catalog(schemaVersion: 1, rules: [], projectRoots: [], projectArtifacts: [])
+    let out = CleanupScan.candidates(
+      home: home, catalog: cat, inventory: StubInventory(),
+      includeRisks: Risk.scanTiers(advanced: true), advanced: true)
+    XCTAssertFalse(out.isEmpty, "expected swept candidates in the synthetic home")
+    for c in out {
+      XCTAssertTrue(allowed.contains(c.category), "unexpected swept category: \(c.category)")
+    }
   }
 }

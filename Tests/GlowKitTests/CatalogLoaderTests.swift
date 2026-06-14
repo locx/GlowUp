@@ -58,7 +58,7 @@ final class CatalogLoaderTests: XCTestCase {
   }
 
   func test_rejectsInvalidProjectRoots() {
-    for bad in ["", "/", "~", "~/a/../b", "Dev/../etc"] {
+    for bad in ["", "/", "/Users/foo", "~", "~/a/../b", "Dev/../etc"] {
       let s = #"{ "schemaVersion": 1, "projectRoots": ["\#(bad)"], "projectArtifacts": [], "rules": [] }"#
       XCTAssertThrowsError(try decode(s), "projectRoot \(bad) should be rejected") {
         XCTAssertEqual($0 as? CatalogError, .invalidProjectRoot(bad))
