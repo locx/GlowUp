@@ -211,7 +211,6 @@ public final class AppModel: ObservableObject {
   }
 
   // Root, permanent (no Trash) — gated behind an Advanced opt-in + admin prompt in the UI.
-  @discardableResult
   public func cleanSystemCaches() -> Bool {
     let ok = SystemCacheCleaner.cleanAll()
     Task { await refreshSystemCaches() }
@@ -219,7 +218,6 @@ public final class AppModel: ObservableObject {
   }
 
   // Removes simulator devices macOS marks unavailable; permanent but safe (they're already unusable).
-  @discardableResult
   public func removeUnavailableSimulators() -> Bool {
     SimulatorCleaner.deleteUnavailable()
   }

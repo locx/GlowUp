@@ -15,6 +15,8 @@ public enum CleanupScan {
     if includeRisks.contains(.rebuildable) {
       swept += OrphanScanner.scan(home: home, known: inventory.knownSet())
       swept += WorkspaceStorageScanner.scan(home: home)
+      // `advanced` gates the deep project-artifact walk on its own, so widening tiers
+      // never silently switches on that expensive scan.
       if advanced { swept += AdvancedScan.run(home: home, catalog: catalog) }  // project artifacts
     }
     swept = swept.filter { includeRisks.contains($0.risk) }

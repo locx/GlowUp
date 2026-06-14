@@ -2,6 +2,10 @@
 # Catalog-driven list/dry-run fallback; needs jq. No deletion — read-only.
 set -euo pipefail
 
+# DIAGNOSTIC/LISTING ONLY — this script does NOT apply the Swift deny-list or glob
+# safety checks, so the paths it prints may differ from what the GlowUp binary surfaces.
+# Do not use this output to manually delete files.
+
 CATALOG="${1:-$(dirname "$0")/../Sources/GlowKit/Resources/catalog.json}"
 HOME_DIR="${HOME}"
 
