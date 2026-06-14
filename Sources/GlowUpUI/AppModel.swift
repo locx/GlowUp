@@ -253,6 +253,10 @@ public final class AppModel: ObservableObject {
     }.value
     let res = RestoreResult(restored: r.restored, failed: r.failed.count)
     lastRestore = res
+    // A failed history prune leaves a stale batch on disk; surface it rather than swallow it.
+    if !r.historyPruned {
+      lastCleanWarning = "Restore succeeded but history couldn't be updated."
+    }
     refreshHistory()
     return res
   }

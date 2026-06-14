@@ -1,7 +1,8 @@
 import Foundation
 
-// Restore was refused because the Trash path no longer holds the recorded item.
-public enum RestoreError: Error, Sendable { case trashPathReused }
+// trashPathReused: the Trash path no longer holds the recorded item.
+// historyUnreadable: the history file exists but won't decode, so appending would overwrite it.
+public enum RestoreError: Error, Sendable { case trashPathReused, historyUnreadable }
 
 public struct RestoreStore {
   private let storeURL: URL
@@ -35,8 +36,17 @@ public struct RestoreStore {
 
   // Append onto the current on-disk contents (decoded fresh), then atomically rewrite.
   private static func appendBatch(_ batch: CleanupBatch, at url: URL) throws {
-    var all = (try? Data(contentsOf: url))
-      .flatMap { try? JSONDecoder().decode([CleanupBatch].self, from: $0) } ?? []
+    // Absent file = first run; a present-but-undecodable file must abort, not be overwritten,
+    // or the atomic rewrite below would permanently destroy prior restore history.
+    var all: [CleanupBatch]
+    if let data = try? Data(contentsOf: url) {
+      guard let decoded = try? JSONDecoder().decode([CleanupBatch].self, from: data) else {
+        throw RestoreError.historyUnreadable
+      }
+      all = decoded
+    } else {
+      all = []
+    }
     all.append(batch)
     let data = try JSONEncoder().encode(all)
     try data.write(to: url, options: .atomic)
@@ -58,7 +68,7 @@ public struct RestoreStore {
   /// the batch is removed on full success, or rewritten with only the failed items.
   /// If every item fails, the batch is deliberately retained whole — those items are still
   /// in the Trash and remain restorable, so dropping it would lose recoverable history.
-  public func restore(_ batch: CleanupBatch) -> (restored: Int, failed: [(TrashedItem, Error)]) {
+  public func restore(_ batch: CleanupBatch) -> (restored: Int, failed: [(TrashedItem, Error)], historyPruned: Bool) {
     let fm = FileManager.default
     var restored = 0
     var failed: [(TrashedItem, Error)] = []
@@ -87,12 +97,14 @@ public struct RestoreStore {
     }
     // History must mirror the Trash, or a partial restore could be replayed against
     // files already put back and stay in the list forever.
+    // No prune is needed (all failed → batch retained) so that case is treated as pruned.
+    var historyPruned = true
     if failed.isEmpty {
-      remove(batch.id)
+      historyPruned = remove(batch.id)
     } else if restored > 0 {
-      replaceItems(batch.id, with: failed.map(\.0))
+      historyPruned = replaceItems(batch.id, with: failed.map(\.0))
     }
-    return (restored, failed)
+    return (restored, failed, historyPruned)
   }
 
   // Returns whether the rewrite was persisted, so a swallowed failure can't leave stale items.

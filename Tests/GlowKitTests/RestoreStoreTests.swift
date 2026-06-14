@@ -112,7 +112,19 @@ final class RestoreStoreTests: XCTestCase {
     let result = s.restore(batch("b", [item]))
 
     XCTAssertEqual(result.restored, 1)
+    XCTAssertTrue(result.historyPruned)
     XCTAssertTrue(s.batches().isEmpty)
+  }
+
+  // A present-but-corrupt history file must abort record(), never be overwritten.
+  func test_recordRefusesToOverwriteUndecodableHistory() throws {
+    try Data("{ not json".utf8).write(to: store)
+    let s = RestoreStore(storeURL: store)
+    XCTAssertThrowsError(try s.record(batch("b", []))) { error in
+      XCTAssertEqual(error as? RestoreError, .historyUnreadable)
+    }
+    // The corrupt bytes must survive untouched so a recovery tool can still read them.
+    XCTAssertEqual(try String(contentsOf: store), "{ not json")
   }
 
   func test_restoreFailsWhenTrashedFileMtimeDiffersFromRecorded() throws {

@@ -19,7 +19,10 @@ public enum CLI {
       let r = store.restore(last)
       let code: Int32 = r.failed.isEmpty ? 0 : 1
       if o.json { return (restoreJSON(restored: r.restored, failed: r.failed.count), code) }
-      return ("Restored \(r.restored); \(r.failed.count) could not be restored.\n", code)
+      var line = "Restored \(r.restored); \(r.failed.count) could not be restored.\n"
+      // A failed history prune leaves a stale batch; warn so the user can retry.
+      if !r.historyPruned { line += "Warning: restore succeeded but history could not be updated.\n" }
+      return (line, code)
     }
 
     let scanned = CleanupScan.candidates(

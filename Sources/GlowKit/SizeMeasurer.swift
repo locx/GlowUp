@@ -32,8 +32,6 @@ public enum SizeMeasurer {
         next += 1
       }
       for await (url, bytes) in group {
-        // Stop seeding and drain on cancellation so the group tears down promptly.
-        if Task.isCancelled { group.cancelAll(); break }
         out[url] = bytes
         if next < urls.count {
           let nextURL = urls[next]
