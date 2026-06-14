@@ -52,7 +52,7 @@ public enum SystemCacheCleaner {
     var args: [String] = []
     for u in urls {
       // Resolve symlinks before the scope check so a link whose target leaves Caches can't pass.
-      let p = u.resolvingSymlinksInPath().path
+      let p = PathUtil.canonicalPath(u)
       guard p.hasPrefix(root + "/"),
             URL(fileURLWithPath: p).deletingLastPathComponent().path == root,
             !p.contains("/..") else { return nil }

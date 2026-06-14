@@ -8,7 +8,7 @@ public enum Vetter {
     // Memoize the data-store probe per unique resolved path so duplicate swept hits scan disk once.
     var storeCache: [String: Bool] = [:]
     func holdsStore(_ url: URL) -> Bool {
-      let resolved = url.resolvingSymlinksInPath()
+      let resolved = PathUtil.canonical(url)
       let key = resolved.path
       if let cached = storeCache[key] { return cached }
       let result = DataStoreGuard.holdsDataStore(resolved)

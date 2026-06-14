@@ -23,7 +23,7 @@ public struct Candidate: Sendable, Identifiable, Equatable {
     // At an equal path keep the most-protected tier, then input order, so the result is
     // deterministic and a cleanable hit can never displace a privacy/stateful one.
     let keyed = candidates.enumerated()
-      .map { (idx, c) in (c.url.resolvingSymlinksInPath().path, idx, c) }
+      .map { (idx, c) in (PathUtil.canonicalPath(c.url), idx, c) }
       .sorted {
         if $0.0 != $1.0 { return $0.0 < $1.0 }
         if $0.2.risk.protectionRank != $1.2.risk.protectionRank {

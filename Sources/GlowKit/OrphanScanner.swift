@@ -2,6 +2,8 @@ import Foundation
 
 public enum OrphanScanner {
   // Case-insensitive prefixes denoting system/vendor-owned Library entries — never orphans.
+  // Static fallback for apps not currently installed (so leftover data isn't flagged the
+  // moment they're uninstalled), complementing the dynamic SystemInventory tokens.
   private static let keepPrefixes: [String] = [
     "com.apple.", "com.crashlytics", "group.com.apple.", "Apple", "CrashReporter",
     "CloudKit", "MobileSync", "Mobile Documents", "iTunes", "iCloud", "Music", "TV",

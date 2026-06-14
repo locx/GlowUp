@@ -24,8 +24,8 @@ public enum CleanupScan {
     // sweep can't relabel or re-tier it, which would make a category appear/vanish between modes.
     // Sort catalog paths once so each swept hit's overlap check is a binary search, not an O(catalog)
     // scan; the filter preserves swept's input order so dedupe's protectionRank tie-break is unaffected.
-    let catalogPaths = catalogHits.map { $0.url.resolvingSymlinksInPath().path }.sorted()
-    swept = swept.filter { !overlapsCatalog($0.url.resolvingSymlinksInPath().path, catalogPaths) }
+    let catalogPaths = catalogHits.map { PathUtil.canonicalPath($0.url) }.sorted()
+    swept = swept.filter { !overlapsCatalog(PathUtil.canonicalPath($0.url), catalogPaths) }
     return Candidate.dedupe(Vetter.vet(catalog: catalogHits, swept: swept, home: home))
   }
 
