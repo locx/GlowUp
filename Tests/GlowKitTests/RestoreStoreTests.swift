@@ -127,6 +127,20 @@ final class RestoreStoreTests: XCTestCase {
     XCTAssertEqual(try String(contentsOf: store), "{ not json")
   }
 
+  // The prune path must honor the same corrupt-history guard as record(): a remove() against an
+  // undecodable file must refuse to write, so still-restorable history is never erased to [].
+  func test_removeRefusesToClobberUndecodableHistory() throws {
+    let s = RestoreStore(storeURL: store)
+    try s.record(batch("one", []))
+    try s.record(batch("two", []))
+    // Corrupt the file after it held two valid batches.
+    try Data("{ not json".utf8).write(to: store)
+
+    XCTAssertFalse(s.remove("one"))
+    // The corrupt bytes must survive untouched, not be overwritten with an empty/pruned history.
+    XCTAssertEqual(try String(contentsOf: store), "{ not json")
+  }
+
   func test_restoreFailsWhenTrashedFileMtimeDiffersFromRecorded() throws {
     // A different file placed at the reused Trash path must not be moved.
     let original = dir.appending(path: "orig.txt")

@@ -19,23 +19,36 @@ public struct RestoreStore {
 
   // Append a batch; newest entries are returned first by `batches()`.
   public func record(_ batch: CleanupBatch) throws {
+    // Corrupt history throws .historyUnreadable; write failures rethrow — never a silent overwrite.
+    try mutate { $0 + [batch] }
+  }
+
+  // The one mutation path: read-modify-write inside a single coordinated writing region so a
+  // stale read can't drop a concurrent change. The transform returns nil to mean "no change, skip
+  // the write". Throws .historyUnreadable on a present-but-corrupt file (never overwriting it) and
+  // rethrows write failures.
+  @discardableResult
+  private func mutate(_ transform: ([CleanupBatch]) -> [CleanupBatch]?) throws -> Bool {
     try FileManager.default.createDirectory(
       at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-    // Read-modify-write inside one coordinated region: a stale read can't drop a concurrent append.
     let coordinator = NSFileCoordinator()
     var coordError: NSError?
     var opError: Error?
+    var wrote = false
     coordinator.coordinate(writingItemAt: storeURL, options: .forMerging,
                            error: &coordError) { url in
-      do { try Self.appendBatch(batch, at: url) } catch { opError = error }
+      do { wrote = try Self.applyTransform(transform, at: url) } catch { opError = error }
     }
-    // Coordination unavailable: re-read immediately before appending so the write is no worse than before.
-    if coordError != nil { try Self.appendBatch(batch, at: storeURL); return }
+    // Coordination unavailable: read-modify-write raw, but the corrupt-guard still applies.
+    if coordError != nil { return try Self.applyTransform(transform, at: storeURL) }
     if let opError { throw opError }
+    return wrote
   }
 
-  // Append onto the current on-disk contents (decoded fresh), then atomically rewrite.
-  private static func appendBatch(_ batch: CleanupBatch, at url: URL) throws {
+  // Decode current contents fresh, transform, then atomically rewrite. Returns whether a write
+  // happened (false when the transform signals no change).
+  private static func applyTransform(
+    _ transform: ([CleanupBatch]) -> [CleanupBatch]?, at url: URL) throws -> Bool {
     // Absent file = first run; a present-but-undecodable file must abort, not be overwritten,
     // or the atomic rewrite below would permanently destroy prior restore history.
     var all: [CleanupBatch]
@@ -47,9 +60,10 @@ public struct RestoreStore {
     } else {
       all = []
     }
-    all.append(batch)
-    let data = try JSONEncoder().encode(all)
+    guard let next = transform(all) else { return false }
+    let data = try JSONEncoder().encode(next)
     try data.write(to: url, options: .atomic)
+    return true
   }
 
   public func batches() -> [CleanupBatch] { load().reversed() }
@@ -58,9 +72,8 @@ public struct RestoreStore {
   // Returns whether the prune was persisted, so a swallowed write failure can't leave a stale batch.
   @discardableResult
   public func remove(_ id: String) -> Bool {
-    let remaining = load().filter { $0.id != id }
-    guard let data = try? JSONEncoder().encode(remaining) else { return false }
-    do { try writeCoordinated(data, intent: .forReplacing); return true }
+    // A corrupt or unwritable history must leave the batch in place rather than erase the file.
+    do { try mutate { $0.filter { $0.id != id } }; return true }
     catch { return false }
   }
 
@@ -110,12 +123,15 @@ public struct RestoreStore {
   // Returns whether the rewrite was persisted, so a swallowed failure can't leave stale items.
   @discardableResult
   private func replaceItems(_ id: String, with items: [TrashedItem]) -> Bool {
-    var all = load()
-    guard let i = all.firstIndex(where: { $0.id == id }) else { return false }
-    all[i] = CleanupBatch(id: all[i].id, date: all[i].date, items: items)
-    guard let data = try? JSONEncoder().encode(all) else { return false }
-    do { try writeCoordinated(data, intent: .forReplacing); return true }
-    catch { return false }
+    // Returns nil (no write) when the id is absent, preserving the no-op-on-missing contract.
+    do {
+      return try mutate { all in
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return nil }
+        var next = all
+        next[i] = CleanupBatch(id: next[i].id, date: next[i].date, items: items)
+        return next
+      }
+    } catch { return false }
   }
 
   private func load() -> [CleanupBatch] {
@@ -137,19 +153,5 @@ public struct RestoreStore {
     // Coordination unavailable must never be worse than the old raw read.
     if coordError != nil { return try? Data(contentsOf: storeURL) }
     return result
-  }
-
-  // Cross-process writes: serialize against concurrent readers/writers of the same file.
-  private func writeCoordinated(_ data: Data, intent: NSFileCoordinator.WritingOptions) throws {
-    let coordinator = NSFileCoordinator()
-    var coordError: NSError?
-    var writeError: Error?
-    coordinator.coordinate(writingItemAt: storeURL, options: intent,
-                           error: &coordError) { url in
-      do { try data.write(to: url, options: .atomic) } catch { writeError = error }
-    }
-    // Coordination unavailable falls back to a raw write so behavior is no worse than before.
-    if coordError != nil { try data.write(to: storeURL, options: .atomic); return }
-    if let writeError { throw writeError }
   }
 }
