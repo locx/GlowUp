@@ -21,10 +21,24 @@ public enum SizeMeasurer {
 
   // Measure many trees concurrently; one entry per input URL.
   public static func measure(_ urls: [URL]) async -> [URL: Int64] {
-    await withTaskGroup(of: (URL, Int64).self) { group in
-      for url in urls { group.addTask { (url, await size(of: url)) } }
+    let window = max(4, min(8, ProcessInfo.processInfo.activeProcessorCount))
+    return await withTaskGroup(of: (URL, Int64).self) { group in
       var out: [URL: Int64] = [:]
-      for await (url, bytes) in group { out[url] = bytes }
+      var next = 0
+      // Seed up to `window` tasks, then add one per completion to cap in-flight work.
+      while next < urls.count && next < window {
+        let url = urls[next]
+        group.addTask { (url, await size(of: url)) }
+        next += 1
+      }
+      for await (url, bytes) in group {
+        out[url] = bytes
+        if next < urls.count {
+          let nextURL = urls[next]
+          group.addTask { (nextURL, await size(of: nextURL)) }
+          next += 1
+        }
+      }
       return out
     }
   }

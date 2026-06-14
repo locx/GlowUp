@@ -38,4 +38,22 @@ final class SizeMeasurerTests: XCTestCase {
     XCTAssertGreaterThanOrEqual(sizes[urls[0]] ?? 0, 4096)
     XCTAssertGreaterThanOrEqual(sizes[urls[1]] ?? 0, 4096)
   }
+
+  func test_measureManyUnderLoadKeepsEveryResult() async throws {
+    let fm = FileManager.default
+    let load = root.appending(path: "load")
+    try fm.createDirectory(at: load, withIntermediateDirectories: true)
+    // More inputs than the in-flight window, so completions must re-seed the group.
+    var urls: [URL] = []
+    for i in 0..<64 {
+      let url = load.appending(path: "f\(i).bin")
+      try Data(repeating: 0xEF, count: 4096).write(to: url)
+      urls.append(url)
+    }
+    let sizes = await SizeMeasurer.measure(urls)
+    XCTAssertEqual(sizes.count, urls.count)
+    for url in urls {
+      XCTAssertGreaterThanOrEqual(sizes[url] ?? 0, 4096)
+    }
+  }
 }
