@@ -29,6 +29,24 @@ final class SystemCacheCleanerTests: XCTestCase {
     XCTAssertEqual(cmd, "/bin/rm -rf '/Library/Caches/com.foo' '/Library/Caches/with space'")
   }
 
+  func test_removalCommandRejectsDotDotEscapingScope() {
+    // `..` that standardizes outside /Library/Caches must be refused.
+    let bad = [
+      "/Library/Caches/../etc",
+      "/Library/Caches/foo/../../etc",
+    ].map { URL(fileURLWithPath: $0, isDirectory: false) }
+    for u in bad {
+      XCTAssertNil(SystemCacheCleaner.removalCommand([u]), "must refuse \(u.path)")
+    }
+  }
+
+  func test_removalCommandShellEscapesSingleQuote() {
+    let cmd = SystemCacheCleaner.removalCommand([
+      URL(fileURLWithPath: "/Library/Caches/o'brien"),
+    ])
+    XCTAssertEqual(cmd, "/bin/rm -rf '/Library/Caches/o'\\''brien'")
+  }
+
   func test_cleanRefusesOutOfScopeWithoutRunning() {
     let r = FakeRunner()
     XCTAssertFalse(SystemCacheCleaner.clean([URL(fileURLWithPath: "/etc")], runner: r))
