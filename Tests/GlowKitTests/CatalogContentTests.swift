@@ -52,6 +52,22 @@ final class CatalogContentTests: XCTestCase {
     }
   }
 
+  func test_dataStoreShapedPathsAreNeverSafe() throws {
+    // Service Worker/CacheStorage and any glob naming a DataStoreGuard segment can hold live
+    // app/PWA state; pinning them off `safe` stops a future editor silently auto-trashing it.
+    for rule in try catalog().rules {
+      for spec in rule.paths {
+        let segments = spec.glob.split(separator: "/").map(String.init)
+        let isDataStoreShaped = spec.glob.hasSuffix("Service Worker/CacheStorage")
+          || segments.contains { DataStoreGuard.names.contains($0) }
+        if isDataStoreShaped {
+          XCTAssertNotEqual(spec.effectiveRisk(ruleRisk: rule.risk), .safe,
+                            "\(rule.id) \(spec.glob) is data-store-shaped and must not be safe")
+        }
+      }
+    }
+  }
+
   func test_browserPrivacyAndSessionPathsAreNotDefaultSafe() throws {
     // Cookies/history must be privacy; sessions/local-storage stateful — never safe.
     for rule in try catalog().rules where rule.category == "browserData" {

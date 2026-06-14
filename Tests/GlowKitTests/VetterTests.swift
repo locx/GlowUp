@@ -52,4 +52,20 @@ final class VetterTests: XCTestCase {
     let out = Vetter.vet(catalog: [cand("Library/Caches/withstore")], swept: [], home: home)
     XCTAssertEqual(out.count, 1, "catalog hits must not face the data-store guard")
   }
+
+  func test_everyGuardedNameBlocksASweptCandidate() throws {
+    // Each guarded name must drop a swept parent that contains it, or a rename/typo would
+    // silently let live app state be swept.
+    for name in DataStoreGuard.names {
+      let parent = "Library/Caches/host-\(UUID().uuidString)"
+      try mkdir("\(parent)/\(name)")
+      let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
+      XCTAssertTrue(out.isEmpty, "guarded name \(name) failed to drop its swept parent")
+    }
+  }
+
+  func test_dataStoreGuardNameCountIsPinned() {
+    // Pins the count so doc/code drift (a dropped or added name) fails CI.
+    XCTAssertEqual(DataStoreGuard.names.count, 14)
+  }
 }

@@ -58,4 +58,18 @@ final class SystemCacheCleanerTests: XCTestCase {
     XCTAssertTrue(SystemCacheCleaner.clean([URL(fileURLWithPath: "/Library/Caches/com.foo")], runner: r))
     XCTAssertEqual(r.received, "/bin/rm -rf '/Library/Caches/com.foo'")
   }
+
+  func test_removalCommandRejectsSymlinkResolvingOutsideScope() throws {
+    // A direct-child symlink whose target leaves /Library/Caches must be refused: the
+    // scope check resolves symlinks, so the link's own direct-child path can't smuggle it through.
+    let root = "/Library/Caches"
+    guard FileManager.default.isWritableFile(atPath: root) else {
+      throw XCTSkip("\(root) not writable; cannot plant a symlink fixture")
+    }
+    let link = URL(fileURLWithPath: root).appending(path: "glowtest-link-\(UUID().uuidString)")
+    try FileManager.default.createSymbolicLink(at: link, withDestinationURL: URL(fileURLWithPath: "/etc"))
+    defer { try? FileManager.default.removeItem(at: link) }
+    XCTAssertNil(SystemCacheCleaner.removalCommand([link]),
+                 "a direct child resolving outside /Library/Caches must be refused")
+  }
 }
