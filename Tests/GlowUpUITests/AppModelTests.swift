@@ -33,6 +33,17 @@ final class AppModelTests: XCTestCase {
     try? FileManager.default.removeItem(at: home.deletingLastPathComponent())
   }
 
+  // Spies for the two non-reversible permanent ops. Fired flags let a test prove the default
+  // (non-advanced) clean path never reaches the root rm / simctl operations.
+  private final class SpyRoot: RootCommandRunner, @unchecked Sendable {
+    var fired = false
+    func runAsRoot(_ command: String) -> Bool { fired = true; return true }
+  }
+  private final class SpyShell: ShellRunner, @unchecked Sendable {
+    var fired = false
+    func run(_ launchPath: String, _ args: [String]) -> Bool { fired = true; return true }
+  }
+
   private func model() throws -> AppModel {
     // Catalog JSON: vscode rule with a safe CachedData path and a stateful WebStorage path.
     // Rule and Catalog are Codable-only (no memberwise init), so we construct via JSON.
@@ -61,8 +72,14 @@ final class AppModelTests: XCTestCase {
                     inventory: FakeInv(),
                     home: home,
                     mover: BinMover(bin: bin),
-                    storeURL: store)
+                    storeURL: store,
+                    rootRunner: rootSpy ?? AdminRunner(),
+                    shellRunner: shellSpy ?? ProcessRunner())
   }
+
+  // Set before calling model() to inject permanent-op spies into the AppModel under test.
+  private var rootSpy: SpyRoot?
+  private var shellSpy: SpyShell?
 
   func test_scanFindsCandidatesAndDefaultSelectsSafe() async throws {
     let m = try model()
@@ -400,6 +417,40 @@ final class AppModelTests: XCTestCase {
     XCTAssertGreaterThan(m.lastFreed, 0)
     // A batch containing the succeeded item was persisted.
     XCTAssertEqual(RestoreStore(storeURL: store).batches().count, 1)
+  }
+
+  // The two non-reversible ops must be unreachable from the default clean path.
+  func test_defaultCleanNeverFiresPermanentOps() async throws {
+    let root = SpyRoot(); let shell = SpyShell()
+    rootSpy = root; shellSpy = shell
+    let m = try model()
+    await m.scan(includeRisks: Risk.scanTiers(advanced: false))
+    await m.cleanSelected()
+    XCTAssertEqual(m.phase, .done)
+    XCTAssertFalse(root.fired, "default cleanSelected must never invoke the root rm op")
+    XCTAssertFalse(shell.fired, "default cleanSelected must never invoke simctl")
+  }
+
+  // The menu-bar quick action is also default-tier and must never reach the permanent ops.
+  func test_quickCleanNeverFiresPermanentOps() async throws {
+    let root = SpyRoot(); let shell = SpyShell()
+    rootSpy = root; shellSpy = shell
+    let m = try model()
+    let items = await m.quickScanSafe()
+    XCTAssertFalse(items.isEmpty)
+    await m.quickClean(items)
+    XCTAssertFalse(root.fired, "quickClean must never invoke the root rm op")
+    XCTAssertFalse(shell.fired, "quickClean must never invoke simctl")
+  }
+
+  // Proves the injected seam is live: only the distinct Advanced-gated methods reach the runners.
+  func test_permanentOpsRouteThroughInjectedRunners() throws {
+    let root = SpyRoot(); let shell = SpyShell()
+    rootSpy = root; shellSpy = shell
+    let m = try model()
+    _ = m.removeUnavailableSimulators()
+    XCTAssertTrue(shell.fired, "removeUnavailableSimulators must use the injected shell runner")
+    XCTAssertFalse(root.fired, "simulator removal must not touch the root runner")
   }
 }
 

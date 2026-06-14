@@ -65,12 +65,19 @@ public final class AppModel: ObservableObject {
   private let home: URL
   private let mover: ItemMover
   private let storeURL: URL
+  // Runners for the two non-reversible permanent ops; injectable so a test can prove the default
+  // clean path never fires them. Defaults are the real runners, so production behavior is unchanged.
+  private let rootRunner: RootCommandRunner
+  private let shellRunner: ShellRunner
 
   public init(catalog: Catalog, inventory: AppInventory, home: URL,
-              mover: ItemMover, storeURL: URL, catalogLoadFailed: Bool = false) {
+              mover: ItemMover, storeURL: URL, catalogLoadFailed: Bool = false,
+              rootRunner: RootCommandRunner = AdminRunner(),
+              shellRunner: ShellRunner = ProcessRunner()) {
     self.catalog = catalog; self.inventory = inventory; self.home = home
     self.mover = mover; self.storeURL = storeURL
     self.catalogLoadFailed = catalogLoadFailed
+    self.rootRunner = rootRunner; self.shellRunner = shellRunner
     refreshHistory()
     refreshTrash()
   }
@@ -216,14 +223,14 @@ public final class AppModel: ObservableObject {
 
   // Root, permanent (no Trash) — gated behind an Advanced opt-in + admin prompt in the UI.
   public func cleanSystemCaches() -> Bool {
-    let ok = SystemCacheCleaner.cleanAll()
+    let ok = SystemCacheCleaner.cleanAll(runner: rootRunner)
     Task { await refreshSystemCaches() }
     return ok
   }
 
   // Removes simulator devices macOS marks unavailable; permanent but safe (they're already unusable).
   public func removeUnavailableSimulators() -> Bool {
-    SimulatorCleaner.deleteUnavailable()
+    SimulatorCleaner.deleteUnavailable(runner: shellRunner)
   }
 
   public func refreshHistory() {
