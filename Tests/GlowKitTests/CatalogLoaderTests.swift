@@ -58,7 +58,8 @@ final class CatalogLoaderTests: XCTestCase {
   }
 
   func test_rejectsInvalidProjectRoots() {
-    for bad in ["", "/", "/Users/foo", "~", "~/a/../b", "Dev/../etc"] {
+    // Non-"~/" roots (absolute, relative, bare/slashless tilde) resolve outside $HOME, so reject them.
+    for bad in ["", "/", "/Users/foo", "~", "~projects", "Dev", "~/a/../b", "Dev/../etc"] {
       let s = #"{ "schemaVersion": 1, "projectRoots": ["\#(bad)"], "projectArtifacts": [], "rules": [] }"#
       XCTAssertThrowsError(try decode(s), "projectRoot \(bad) should be rejected") {
         XCTAssertEqual($0 as? CatalogError, .invalidProjectRoot(bad))
@@ -66,10 +67,12 @@ final class CatalogLoaderTests: XCTestCase {
     }
   }
 
-  func test_rejectsEmptyProjectArtifact() {
-    let s = #"{ "schemaVersion": 1, "projectRoots": [], "projectArtifacts": [""], "rules": [] }"#
-    XCTAssertThrowsError(try decode(s)) {
-      XCTAssertEqual($0 as? CatalogError, .invalidProjectArtifact(""))
+  func test_rejectsMalformedProjectArtifact() {
+    for bad in ["", "a/b", "../x", ".."] {
+      let s = #"{ "schemaVersion": 1, "projectRoots": [], "projectArtifacts": ["\#(bad)"], "rules": [] }"#
+      XCTAssertThrowsError(try decode(s), "artifact \(bad) should be rejected") {
+        XCTAssertEqual($0 as? CatalogError, .invalidProjectArtifact(bad))
+      }
     }
   }
 

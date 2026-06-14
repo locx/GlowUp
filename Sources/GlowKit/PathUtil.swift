@@ -11,7 +11,7 @@ public enum PathUtil {
     return URL(fileURLWithPath: path)
   }
 
-  // Follow symlinks without the lexical `..`-collapse that `standardizedFileURL` would apply,
-  // so a planted `..` survives to the deny-list rather than being silently resolved away.
+  // Canonicalize by following symlinks (DenyList's own pre-resolution `..` check is what
+  // catches traversal; this just gives every layer one consistent resolved path to compare).
   public static func canonicalPath(_ url: URL) -> String { url.resolvingSymlinksInPath().path }
 }
