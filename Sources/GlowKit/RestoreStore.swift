@@ -17,14 +17,29 @@ public struct RestoreStore {
   }
 
   // Append a batch; newest entries are returned first by `batches()`.
-  // Single-writer: assumes the app serializes record/restore; concurrent records would lose-update the history.
   public func record(_ batch: CleanupBatch) throws {
-    var all = load()
-    all.append(batch)
-    let data = try JSONEncoder().encode(all)
     try FileManager.default.createDirectory(
       at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try writeCoordinated(data, intent: .forMerging)
+    // Read-modify-write inside one coordinated region: a stale read can't drop a concurrent append.
+    let coordinator = NSFileCoordinator()
+    var coordError: NSError?
+    var opError: Error?
+    coordinator.coordinate(writingItemAt: storeURL, options: .forMerging,
+                           error: &coordError) { url in
+      do { try Self.appendBatch(batch, at: url) } catch { opError = error }
+    }
+    // Coordination unavailable: re-read immediately before appending so the write is no worse than before.
+    if coordError != nil { try Self.appendBatch(batch, at: storeURL); return }
+    if let opError { throw opError }
+  }
+
+  // Append onto the current on-disk contents (decoded fresh), then atomically rewrite.
+  private static func appendBatch(_ batch: CleanupBatch, at url: URL) throws {
+    var all = (try? Data(contentsOf: url))
+      .flatMap { try? JSONDecoder().decode([CleanupBatch].self, from: $0) } ?? []
+    all.append(batch)
+    let data = try JSONEncoder().encode(all)
+    try data.write(to: url, options: .atomic)
   }
 
   public func batches() -> [CleanupBatch] { load().reversed() }

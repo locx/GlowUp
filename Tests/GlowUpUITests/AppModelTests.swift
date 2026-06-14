@@ -183,6 +183,67 @@ final class AppModelTests: XCTestCase {
     }, "stateful candidate must never appear in a recorded cleanup batch")
   }
 
+  func test_cleanSelectedInAdvancedSparesStatefulAndPrivacyButTrashesRebuildable() async throws {
+    // Advanced mode widens cleanTiers to [.safe, .rebuildable]; stateful/privacy must still be spared
+    // by the tier guard specifically (not merely excluded by basic mode's [.safe] filter).
+    let fm = FileManager.default
+    let appSupport = home.appending(path: "Library/Application Support/Code")
+    for name in ["Build", "WebStorage", "Cookies"] {
+      try fm.createDirectory(at: appSupport.appending(path: name), withIntermediateDirectories: true)
+      try Data(repeating: 0xAB, count: 4096).write(to: appSupport.appending(path: "\(name)/blob"))
+    }
+    let catalogJSON = Data("""
+    {
+      "schemaVersion": 1,
+      "rules": [{
+        "id": "vscode",
+        "app": "Visual Studio Code",
+        "appBundleID": "com.microsoft.VSCode",
+        "requiresInstalled": true,
+        "category": "appCaches",
+        "risk": "safe",
+        "why": "w",
+        "paths": [
+          { "base": "appSupport", "glob": "Code/Build", "risk": "rebuildable" },
+          { "base": "appSupport", "glob": "Code/WebStorage", "risk": "stateful" },
+          { "base": "appSupport", "glob": "Code/Cookies", "risk": "privacy" }
+        ]
+      }],
+      "projectRoots": [],
+      "projectArtifacts": []
+    }
+    """.utf8)
+    let cat = try JSONDecoder().decode(Catalog.self, from: catalogJSON)
+    let m = AppModel(catalog: cat, inventory: FakeInv(), home: home,
+                     mover: BinMover(bin: bin), storeURL: store)
+
+    m.advanced = true
+    await m.scan(includeRisks: Risk.scanTiers(advanced: true))
+    let rebuildable = try XCTUnwrap(m.candidates.first { $0.risk == .rebuildable })
+    let stateful = try XCTUnwrap(m.candidates.first { $0.risk == .stateful })
+    let privacy = try XCTUnwrap(m.candidates.first { $0.risk == .privacy })
+
+    // Force every candidate into the selection; the tier guard must still spare stateful + privacy.
+    m.selected = Set(m.candidates.map(\.id))
+    await m.cleanSelected()
+
+    // Rebuildable IS trashed under Advanced.
+    XCTAssertFalse(fm.fileExists(atPath: rebuildable.url.path),
+                   "rebuildable candidate should be trashed in advanced mode")
+    // Stateful and privacy remain on disk despite being selected.
+    XCTAssertTrue(fm.fileExists(atPath: stateful.url.path),
+                  "stateful candidate must never be trashed, even under Advanced")
+    XCTAssertTrue(fm.fileExists(atPath: privacy.url.path),
+                  "privacy candidate must never be trashed, even under Advanced")
+    // Neither stateful nor privacy may appear in any recorded batch.
+    let recorded = RestoreStore(storeURL: store).batches()
+    XCTAssertTrue(recorded.contains { $0.items.contains { $0.originalPath == rebuildable.url.path } },
+                  "rebuildable cleanup must be recorded")
+    XCTAssertFalse(recorded.contains { b in
+      b.items.contains { $0.originalPath == stateful.url.path || $0.originalPath == privacy.url.path }
+    }, "stateful/privacy must never appear in a recorded cleanup batch")
+  }
+
   func test_lastFreedCountsSamePathOnce() async throws {
     // Two rules that both resolve to the same URL — dedupe should keep one; freed == that size.
     let catalogJSON = Data("""
