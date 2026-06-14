@@ -68,4 +68,25 @@ final class VetterTests: XCTestCase {
     // Pins the count so doc/code drift (a dropped or added name) fails CI.
     XCTAssertEqual(DataStoreGuard.names.count, 14)
   }
+
+  func test_duplicateProtectedPathBothGetCachedVeto() {
+    // Two candidates at the same protected path must both be vetoed; the per-scan memo must
+    // not let a cached pass leak — neither survives.
+    let a = cand("Documents/keep")
+    let b = cand("Documents/keep")
+    XCTAssertTrue(Vetter.vet(catalog: [a, b], swept: [], home: home).isEmpty)
+  }
+
+  func test_literalDotDotInputVetoedEvenAfterSiblingCached() {
+    // A clean sibling caches first; a literal ".." input that lexically resolves to the same
+    // protected dir must still be vetoed — the cache keys on the raw path, and DenyList's ".."
+    // short-circuit fires before resolution, so the dirty input cannot borrow the clean verdict.
+    let clean = cand("Library/Caches/plain")
+    let traversal = Candidate(ruleID: "t", app: nil, category: "appCaches", risk: .rebuildable,
+                              why: "x", url: home.appending(path: "Library/Caches/plain/../plain"))
+    let out = Vetter.vet(catalog: [clean, traversal], swept: [], home: home)
+    XCTAssertEqual(out.count, 1, "the clean path passes")
+    XCTAssertFalse(out.contains { $0.url.path.contains("..") },
+                   "the literal-.. input must be vetoed despite a cached clean sibling")
+  }
 }
