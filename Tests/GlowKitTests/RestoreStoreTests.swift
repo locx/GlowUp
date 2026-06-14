@@ -131,6 +131,7 @@ final class RestoreStoreTests: XCTestCase {
 
     XCTAssertEqual(result.restored, 0)
     XCTAssertEqual(result.failed.count, 1)
+    XCTAssertEqual(result.failed[0].1 as? RestoreError, .trashPathReused)
     // Trashed file must still be present — the failed guard must not consume it.
     XCTAssertTrue(FileManager.default.fileExists(atPath: trashed.path))
   }
