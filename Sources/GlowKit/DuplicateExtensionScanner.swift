@@ -20,16 +20,17 @@ public enum DuplicateExtensionScanner {
 
     var out: [Candidate] = []
     for (ext, versions) in groups where versions.count > 1 {
-      let keep = versions.max { lexLess($0.version, $1.version) }!.name
-      for v in versions where v.name != keep {
+      guard let maxVersion = versions.map(\.version).max(by: lexLess) else { continue }
+      // Only flag entries whose version is strictly less than the max; equal versions
+      // (e.g. same release with different platform suffixes) are kept.
+      for v in versions where lexLess(v.version, maxVersion) {
         let url = dir.appending(path: v.name)
-        guard !DenyList.vetoes(url, home: home) else { continue }
         out.append(Candidate(ruleID: "dupext.\(ext)", app: "Visual Studio Code",
-                             category: "duplicateExtensions", risk: .rebuildable,
+                             category: "duplicateExtensions", risk: .safe,
                              why: "Superseded by a newer installed version.", url: url))
       }
     }
-    return out.sorted { $0.url.path < $1.url.path }
+    return out.sortedByPath()
   }
 
   // Version begins at the first '-' immediately followed by a digit.

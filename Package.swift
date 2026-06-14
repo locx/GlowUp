@@ -6,7 +6,8 @@ let package = Package(
   platforms: [.macOS(.v13)],
   products: [
     .library(name: "GlowKit", targets: ["GlowKit"]),
-    .executable(name: "GlowUp", targets: ["GlowUp"]),
+    // Product/binary named GlowUpApp so it doesn't collide with the case-insensitive `glowup` CLI binary.
+    .executable(name: "GlowUpApp", targets: ["GlowUp"]),
     .executable(name: "glowup", targets: ["GlowUpExec"]),
   ],
   targets: [
@@ -25,8 +26,7 @@ let package = Package(
     ),
     .executableTarget(
       name: "GlowUp",
-      dependencies: ["GlowUpUI", "GlowUpCLI"],
-      exclude: ["main.swift"]
+      dependencies: ["GlowUpUI"]
     ),
     .testTarget(
       name: "GlowUpUITests",

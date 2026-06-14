@@ -1,5 +1,5 @@
 public struct CLIOptions: Equatable {
-  public enum Mode: Equatable { case list, dryRun, clean, restore, projects }
+  public enum Mode: Equatable { case list, dryRun, clean, restore }
 
   public var mode: Mode = .dryRun
   public var advanced = false
@@ -16,7 +16,6 @@ public struct CLIOptions: Equatable {
       case "--dry-run":  o.mode = .dryRun
       case "--clean":    o.mode = .clean
       case "--restore":  o.mode = .restore
-      case "--projects": o.mode = .projects
       case "--advanced": o.advanced = true
       case "--json":     o.json = true
       case "--no-color": o.noColor = true

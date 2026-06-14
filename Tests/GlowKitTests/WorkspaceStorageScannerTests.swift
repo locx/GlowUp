@@ -29,6 +29,28 @@ final class WorkspaceStorageScannerTests: XCTestCase {
     let found = WorkspaceStorageScanner.scan(home: home)
     XCTAssertEqual(found.map(\.url.lastPathComponent), ["bbb"])
     XCTAssertEqual(found.first?.category, "workspaceOrphans")
-    XCTAssertNotEqual(found.first?.risk, .safe)
+    // Workspace storage holds extension state, never one default click from the Trash.
+    XCTAssertEqual(found.first?.risk, .rebuildable)
+  }
+
+  // Older VSCode builds wrote raw POSIX paths instead of file:// URIs.
+  func test_flagsDanglingRawPathWorkspaces() throws {
+    let dir = storage.appending(path: "raw")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let json = #"{"folder":"\#(home.appending(path: "projects/gone-raw").path)"}"#
+    try Data(json.utf8).write(to: dir.appending(path: "workspace.json"))
+
+    let found = WorkspaceStorageScanner.scan(home: home)
+    XCTAssertEqual(found.map(\.url.lastPathComponent), ["raw"])
+  }
+
+  // Remote workspaces can't be verified gone from this machine — never flagged.
+  func test_skipsRemoteWorkspaces() throws {
+    let dir = storage.appending(path: "remote")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let json = #"{"folder":"vscode-remote://ssh-remote%2Bhost/work/app"}"#
+    try Data(json.utf8).write(to: dir.appending(path: "workspace.json"))
+
+    XCTAssertTrue(WorkspaceStorageScanner.scan(home: home).isEmpty)
   }
 }

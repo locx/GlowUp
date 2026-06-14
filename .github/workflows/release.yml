@@ -14,7 +14,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build release
-        run: swift build -c release --product GlowUp
+        run: swift build -c release --product GlowUpApp
+
+      - name: Generate app icon
+        run: swift packaging/make-icon.swift && iconutil -c icns packaging/GlowUp.iconset -o packaging/AppIcon.icns
 
       - name: Assemble app bundle + DMG
         run: bash packaging/make-dmg.sh
@@ -39,6 +42,9 @@ jobs:
           codesign --force --options runtime --timestamp \
             --entitlements packaging/GlowUp.entitlements \
             --sign "$DEV_ID" dist/GlowUp.app
+
+      - name: Repackage the signed app into the DMG
+        run: hdiutil create -volname "GlowUp" -srcfolder dist/GlowUp.app -ov -format UDZO dist/GlowUp.dmg
 
       - name: Notarize + staple
         env:

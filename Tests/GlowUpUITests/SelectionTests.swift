@@ -18,4 +18,9 @@ final class SelectionTests: XCTestCase {
   func test_emptyWhenNoSafe() {
     XCTAssertTrue(Selection.defaultSelected([cand("a", .stateful)]).isEmpty)
   }
+
+  func test_defaultSelectsRebuildableNotPrivacyOrStateful() {
+    let cands = [cand("a", .rebuildable), cand("b", .stateful), cand("c", .privacy)]
+    XCTAssertEqual(Selection.defaultSelected(cands), Set([cands[0].id]))
+  }
 }

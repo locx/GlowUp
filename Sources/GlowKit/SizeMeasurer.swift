@@ -12,7 +12,7 @@ public enum SizeMeasurer {
                                      .totalFileAllocatedSizeKey, .fileAllocatedSizeKey]
     guard let en = fm.enumerator(at: url, includingPropertiesForKeys: Array(keys)) else { return 0 }
     var total: Int64 = 0
-    for case let child as URL in en {
+    while let child = en.nextObject() as? URL {
       if Task.isCancelled { return total }
       total += allocated(child)
     }

@@ -22,15 +22,20 @@ public struct Trasher {
 
   public init(mover: ItemMover = SystemMover()) { self.mover = mover }
 
-  public func trash(_ urls: [URL]) -> (trashed: [TrashedItem], failures: [(URL, Error)]) {
+  // Moves each item to the Trash, recording the caller-supplied byte count and the
+  // destination's modification date (one stat) for later Trash-path-reuse detection.
+  public func trash(_ items: [(url: URL, bytes: Int64)]) -> (trashed: [TrashedItem], failures: [(URL, Error)]) {
     var trashed: [TrashedItem] = []
     var failures: [(URL, Error)] = []
-    for url in urls {
+    for item in items {
       do {
-        let dest = try mover.trash(url)
-        trashed.append(TrashedItem(originalPath: url.path, trashedPath: dest.path))
+        let dest = try mover.trash(item.url)
+        let modified = try? dest.resourceValues(forKeys: [.contentModificationDateKey])
+                                .contentModificationDate
+        trashed.append(TrashedItem(originalPath: item.url.path, trashedPath: dest.path,
+                                   bytes: item.bytes, modified: modified))
       } catch {
-        failures.append((url, error))
+        failures.append((item.url, error))
       }
     }
     return (trashed, failures)

@@ -76,4 +76,62 @@ final class RestoreStoreTests: XCTestCase {
     XCTAssertEqual(result.failed.count, 1)
     XCTAssertEqual(result.failed[0].0, item)
   }
+
+  // History must track the Trash: a partial restore keeps only the failed items.
+  func test_partialRestorePrunesRestoredItemsFromStore() throws {
+    let okOriginal = dir.appending(path: "ok.txt")
+    let okTrashed = dir.appending(path: "_bin/ok.txt")
+    try FileManager.default.createDirectory(
+      at: okTrashed.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("ok".utf8).write(to: okTrashed)
+    let ok = TrashedItem(originalPath: okOriginal.path, trashedPath: okTrashed.path)
+    let gone = TrashedItem(originalPath: dir.appending(path: "gone.txt").path,
+                           trashedPath: dir.appending(path: "_bin/gone.txt").path)
+
+    let s = RestoreStore(storeURL: store)
+    try s.record(batch("b", [ok, gone]))
+    let result = s.restore(batch("b", [ok, gone]))
+
+    XCTAssertEqual(result.restored, 1)
+    XCTAssertEqual(result.failed.count, 1)
+    XCTAssertEqual(s.batches().map(\.id), ["b"])
+    XCTAssertEqual(s.batches().first?.items, [gone])
+  }
+
+  // A fully restored batch must leave history without the caller having to remove it.
+  func test_fullRestoreRemovesBatchFromStore() throws {
+    let original = dir.appending(path: "full.txt")
+    let trashed = dir.appending(path: "_bin/full.txt")
+    try FileManager.default.createDirectory(
+      at: trashed.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("x".utf8).write(to: trashed)
+    let item = TrashedItem(originalPath: original.path, trashedPath: trashed.path)
+
+    let s = RestoreStore(storeURL: store)
+    try s.record(batch("b", [item]))
+    let result = s.restore(batch("b", [item]))
+
+    XCTAssertEqual(result.restored, 1)
+    XCTAssertTrue(s.batches().isEmpty)
+  }
+
+  func test_restoreFailsWhenTrashedFileMtimeDiffersFromRecorded() throws {
+    // A different file placed at the reused Trash path must not be moved.
+    let original = dir.appending(path: "orig.txt")
+    let trashed  = dir.appending(path: "_bin/orig.txt")
+    try FileManager.default.createDirectory(
+      at: trashed.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("content".utf8).write(to: trashed)
+
+    // Record a stale modification date that will not match the on-disk mtime.
+    let staleDate = Date(timeIntervalSince1970: 0)
+    let item = TrashedItem(originalPath: original.path, trashedPath: trashed.path,
+                           bytes: 7, modified: staleDate)
+    let result = RestoreStore(storeURL: store).restore(batch("b", [item]))
+
+    XCTAssertEqual(result.restored, 0)
+    XCTAssertEqual(result.failed.count, 1)
+    // Trashed file must still be present — the failed guard must not consume it.
+    XCTAssertTrue(FileManager.default.fileExists(atPath: trashed.path))
+  }
 }

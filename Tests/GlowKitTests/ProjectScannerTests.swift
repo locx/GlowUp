@@ -16,7 +16,7 @@ final class ProjectScannerTests: XCTestCase {
 
   func test_findsArtifactDirsNotPlainDirs() {
     let found = ProjectScanner.scan(roots: [root],
-      artifacts: ["node_modules", ".venv"], home: root)
+      artifacts: ["node_modules", ".venv"])
     XCTAssertEqual(Set(found.map(\.url.lastPathComponent)), ["node_modules", ".venv"])
     XCTAssertEqual(found.first?.risk, .rebuildable)
     XCTAssertEqual(found.first?.category, "projectArtifacts")
@@ -24,7 +24,7 @@ final class ProjectScannerTests: XCTestCase {
 
   func test_doesNotDescendIntoMatchedArtifact() {
     // 'pkg' lives inside node_modules and must not be reported separately.
-    let found = ProjectScanner.scan(roots: [root], artifacts: ["node_modules"], home: root)
+    let found = ProjectScanner.scan(roots: [root], artifacts: ["node_modules"])
     XCTAssertFalse(found.contains { $0.url.lastPathComponent == "pkg" })
   }
 }

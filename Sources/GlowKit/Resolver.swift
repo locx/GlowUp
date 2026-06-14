@@ -5,6 +5,8 @@ public enum Resolver {
   // Expand a spec to existing, non-vetoed URLs under its base root.
   public static func resolve(_ spec: PathSpec, home: URL) -> [URL] {
     let segments = spec.glob.split(separator: "/").map(String.init)
+    // Re-checked here so the deny-list isn't the lone defense for specs built in code.
+    guard !segments.contains("..") else { return [] }
     var frontier = [spec.base.url(home: home)]
     for seg in segments {
       if seg.contains("*") {

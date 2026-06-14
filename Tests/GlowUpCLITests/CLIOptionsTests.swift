@@ -14,7 +14,8 @@ final class CLIOptionsTests: XCTestCase {
     XCTAssertEqual(CLIOptions.parse(["--list"]).mode, .list)
     XCTAssertEqual(CLIOptions.parse(["--clean"]).mode, .clean)
     XCTAssertEqual(CLIOptions.parse(["--restore"]).mode, .restore)
-    XCTAssertEqual(CLIOptions.parse(["--projects"]).mode, .projects)
+    // --projects was removed; project artifacts surface via --advanced.
+    XCTAssertEqual(CLIOptions.parse(["--projects"]).unknown, ["--projects"])
     let o = CLIOptions.parse(["--clean", "--advanced", "--json", "--no-color"])
     XCTAssertEqual(o.mode, .clean)
     XCTAssertTrue(o.advanced)

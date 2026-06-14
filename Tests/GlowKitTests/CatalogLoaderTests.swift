@@ -46,4 +46,21 @@ final class CatalogLoaderTests: XCTestCase {
       XCTAssertEqual($0 as? CatalogError, .invalidGlob("App/**/Cache"))
     }
   }
+
+  func test_rejectsLeadingWildcardGlob() {
+    // A glob whose first segment contains '*' enumerates the entire base root.
+    for bad in ["*", "*/Cache"] {
+      let s = #"{ "schemaVersion": 1, "projectRoots": [], "projectArtifacts": [], "rules": [ {"id":"a","category":"c","risk":"safe","why":"w","paths":[{"base":"caches","glob":"\#(bad)"}]} ] }"#
+      XCTAssertThrowsError(try CatalogLoader.load(data: Data(s.utf8)), "glob \(bad) should be rejected") {
+        XCTAssertEqual($0 as? CatalogError, .invalidGlob(bad))
+      }
+    }
+  }
+
+  func test_allowsWildcardInLaterSegment() throws {
+    // A '*' in a non-first segment (e.g. "Google/Chrome/*/Cache") must be accepted.
+    let s = #"{ "schemaVersion": 1, "projectRoots": [], "projectArtifacts": [], "rules": [ {"id":"a","category":"c","risk":"safe","why":"w","paths":[{"base":"caches","glob":"Google/Chrome/*/Cache"}]} ] }"#
+    let cat = try CatalogLoader.load(data: Data(s.utf8))
+    XCTAssertEqual(cat.rules.count, 1)
+  }
 }

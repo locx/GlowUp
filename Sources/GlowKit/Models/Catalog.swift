@@ -28,4 +28,8 @@ public struct Catalog: Codable, Sendable {
   public let rules: [Rule]
   public let projectRoots: [String]
   public let projectArtifacts: [String]
+
+  /// Fallback when the bundled catalog can't load: scans find nothing, cleans nothing.
+  public static let empty = Catalog(schemaVersion: 1, rules: [],
+                                    projectRoots: [], projectArtifacts: [])
 }

@@ -13,7 +13,11 @@
         { "base": "appSupport", "glob": "Google/Chrome/*/Cache" },
         { "base": "appSupport", "glob": "Google/Chrome/*/Code Cache" },
         { "base": "appSupport", "glob": "Google/Chrome/*/GPUCache" },
-        { "base": "appSupport", "glob": "Google/Chrome/*/Service Worker/CacheStorage" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/GrShaderCache" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/ShaderCache" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/DawnCache" },
+        { "base": "appSupport", "glob": "Google/Chrome/*/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Google/Chrome/component_crx_cache" },
         { "base": "appSupport", "glob": "Google/Chrome/*/Cookies", "risk": "privacy" },
         { "base": "appSupport", "glob": "Google/Chrome/*/History", "risk": "privacy" },
         { "base": "appSupport", "glob": "Google/Chrome/*/Sessions", "risk": "stateful" },
@@ -32,7 +36,11 @@
         { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Cache" },
         { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Code Cache" },
         { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/GPUCache" },
-        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Service Worker/CacheStorage" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/GrShaderCache" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/ShaderCache" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/DawnCache" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/component_crx_cache" },
         { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Cookies", "risk": "privacy" },
         { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/History", "risk": "privacy" },
         { "base": "appSupport", "glob": "BraveSoftware/Brave-Browser/*/Sessions", "risk": "stateful" },
@@ -51,7 +59,11 @@
         { "base": "appSupport", "glob": "Microsoft Edge/*/Cache" },
         { "base": "appSupport", "glob": "Microsoft Edge/*/Code Cache" },
         { "base": "appSupport", "glob": "Microsoft Edge/*/GPUCache" },
-        { "base": "appSupport", "glob": "Microsoft Edge/*/Service Worker/CacheStorage" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/GrShaderCache" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/ShaderCache" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/DawnCache" },
+        { "base": "appSupport", "glob": "Microsoft Edge/*/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Microsoft Edge/component_crx_cache" },
         { "base": "appSupport", "glob": "Microsoft Edge/*/Cookies", "risk": "privacy" },
         { "base": "appSupport", "glob": "Microsoft Edge/*/History", "risk": "privacy" }
       ]
@@ -72,6 +84,160 @@
       ]
     },
     {
+      "id": "vivaldi",
+      "app": "Vivaldi",
+      "appBundleID": "com.vivaldi.Vivaldi",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser caches are rebuilt automatically.",
+      "paths": [
+        { "base": "appSupport", "glob": "Vivaldi/*/Cache" },
+        { "base": "appSupport", "glob": "Vivaldi/*/Code Cache" },
+        { "base": "appSupport", "glob": "Vivaldi/*/GPUCache" },
+        { "base": "appSupport", "glob": "Vivaldi/*/GrShaderCache" },
+        { "base": "appSupport", "glob": "Vivaldi/*/ShaderCache" },
+        { "base": "appSupport", "glob": "Vivaldi/*/DawnCache" },
+        { "base": "appSupport", "glob": "Vivaldi/*/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Vivaldi/component_crx_cache" },
+        { "base": "appSupport", "glob": "Vivaldi/*/Cookies", "risk": "privacy" },
+        { "base": "appSupport", "glob": "Vivaldi/*/History", "risk": "privacy" },
+        { "base": "appSupport", "glob": "Vivaldi/*/Sessions", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Vivaldi/*/Local Storage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "opera",
+      "app": "Opera",
+      "appBundleID": "com.operasoftware.Opera",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser caches are rebuilt automatically.",
+      "paths": [
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/Cache" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/Code Cache" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/GPUCache" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/GrShaderCache" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/ShaderCache" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/DawnCache" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/component_crx_cache" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/Cookies", "risk": "privacy" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/History", "risk": "privacy" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/Sessions", "risk": "stateful" },
+        { "base": "appSupport", "glob": "com.operasoftware.Opera/*/Local Storage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "arc",
+      "app": "Arc",
+      "appBundleID": "company.thebrowser.Browser",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser caches are rebuilt automatically.",
+      "paths": [
+        { "base": "appSupport", "glob": "Arc/User Data/*/Cache" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/Code Cache" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/GPUCache" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/GrShaderCache" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/ShaderCache" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/DawnCache" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Arc/User Data/component_crx_cache" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/Cookies", "risk": "privacy" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/History", "risk": "privacy" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/Sessions", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Arc/User Data/*/Local Storage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "chrome.netcache",
+      "app": "Google Chrome (Caches)",
+      "appBundleID": "com.google.Chrome",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser network caches under ~/Library/Caches are rebuilt automatically.",
+      "paths": [
+        { "base": "caches", "glob": "Google/Chrome/*/Cache" },
+        { "base": "caches", "glob": "Google/Chrome/*/Code Cache" },
+        { "base": "caches", "glob": "Google/Chrome/*/GPUCache" },
+        { "base": "caches", "glob": "Google/Chrome/*/Service Worker/CacheStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "brave.netcache",
+      "app": "Brave Browser (Caches)",
+      "appBundleID": "com.brave.Browser",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser network caches under ~/Library/Caches are rebuilt automatically.",
+      "paths": [
+        { "base": "caches", "glob": "BraveSoftware/Brave-Browser/*/Cache" },
+        { "base": "caches", "glob": "BraveSoftware/Brave-Browser/*/Code Cache" },
+        { "base": "caches", "glob": "BraveSoftware/Brave-Browser/*/GPUCache" },
+        { "base": "caches", "glob": "BraveSoftware/Brave-Browser/*/Service Worker/CacheStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "edge.netcache",
+      "app": "Microsoft Edge (Caches)",
+      "appBundleID": "com.microsoft.edgemac",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser network caches under ~/Library/Caches are rebuilt automatically.",
+      "paths": [
+        { "base": "caches", "glob": "Microsoft Edge/*/Cache" },
+        { "base": "caches", "glob": "Microsoft Edge/*/Code Cache" },
+        { "base": "caches", "glob": "Microsoft Edge/*/GPUCache" }
+      ]
+    },
+    {
+      "id": "vivaldi.netcache",
+      "app": "Vivaldi (Caches)",
+      "appBundleID": "com.vivaldi.Vivaldi",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser network caches under ~/Library/Caches are rebuilt automatically.",
+      "paths": [
+        { "base": "caches", "glob": "Vivaldi/*/Cache" },
+        { "base": "caches", "glob": "Vivaldi/*/Code Cache" },
+        { "base": "caches", "glob": "Vivaldi/*/GPUCache" }
+      ]
+    },
+    {
+      "id": "arc.netcache",
+      "app": "Arc (Caches)",
+      "appBundleID": "company.thebrowser.Browser",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser network caches under ~/Library/Caches are rebuilt automatically.",
+      "paths": [
+        { "base": "caches", "glob": "Arc/User Data/*/Cache" },
+        { "base": "caches", "glob": "Arc/User Data/*/Code Cache" },
+        { "base": "caches", "glob": "Arc/User Data/*/GPUCache" }
+      ]
+    },
+    {
+      "id": "firefox.netcache",
+      "app": "Firefox (Caches)",
+      "appBundleID": "org.mozilla.firefox",
+      "requiresInstalled": true,
+      "category": "browserData",
+      "risk": "safe",
+      "why": "Browser network caches under ~/Library/Caches are rebuilt automatically.",
+      "paths": [
+        { "base": "caches", "glob": "Firefox/Profiles/*/cache2" },
+        { "base": "caches", "glob": "Firefox/Profiles/*/startupCache" }
+      ]
+    },
+    {
       "id": "vscode",
       "app": "Visual Studio Code",
       "appBundleID": "com.microsoft.VSCode",
@@ -80,13 +246,75 @@
       "risk": "safe",
       "why": "Regenerated on next launch.",
       "paths": [
+        { "base": "appSupport", "glob": "Code/Cache" },
         { "base": "appSupport", "glob": "Code/CachedData" },
         { "base": "appSupport", "glob": "Code/CachedExtensionVSIXs" },
         { "base": "appSupport", "glob": "Code/Crashpad" },
-        { "base": "appSupport", "glob": "Code/Cache" },
         { "base": "appSupport", "glob": "Code/Code Cache" },
         { "base": "appSupport", "glob": "Code/GPUCache" },
+        { "base": "appSupport", "glob": "Code/logs" },
+        { "base": "appSupport", "glob": "Code/Service Worker/CacheStorage", "risk": "stateful" },
         { "base": "appSupport", "glob": "Code/WebStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "vscode.insiders",
+      "app": "Visual Studio Code - Insiders",
+      "appBundleID": "com.microsoft.VSCodeInsiders",
+      "requiresInstalled": true,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Code - Insiders/Cache" },
+        { "base": "appSupport", "glob": "Code - Insiders/CachedData" },
+        { "base": "appSupport", "glob": "Code - Insiders/CachedExtensionVSIXs" },
+        { "base": "appSupport", "glob": "Code - Insiders/Crashpad" },
+        { "base": "appSupport", "glob": "Code - Insiders/Code Cache" },
+        { "base": "appSupport", "glob": "Code - Insiders/GPUCache" },
+        { "base": "appSupport", "glob": "Code - Insiders/logs" },
+        { "base": "appSupport", "glob": "Code - Insiders/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Code - Insiders/WebStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "cursor",
+      "app": "Cursor",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Cursor/Cache" },
+        { "base": "appSupport", "glob": "Cursor/CachedData" },
+        { "base": "appSupport", "glob": "Cursor/CachedExtensionVSIXs" },
+        { "base": "appSupport", "glob": "Cursor/Crashpad" },
+        { "base": "appSupport", "glob": "Cursor/Code Cache" },
+        { "base": "appSupport", "glob": "Cursor/GPUCache" },
+        { "base": "appSupport", "glob": "Cursor/logs" },
+        { "base": "appSupport", "glob": "Cursor/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "Cursor/WebStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "vscodium",
+      "app": "VSCodium",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "VSCodium/Cache" },
+        { "base": "appSupport", "glob": "VSCodium/CachedData" },
+        { "base": "appSupport", "glob": "VSCodium/CachedExtensionVSIXs" },
+        { "base": "appSupport", "glob": "VSCodium/Crashpad" },
+        { "base": "appSupport", "glob": "VSCodium/Code Cache" },
+        { "base": "appSupport", "glob": "VSCodium/GPUCache" },
+        { "base": "appSupport", "glob": "VSCodium/logs" },
+        { "base": "appSupport", "glob": "VSCodium/Service Worker/CacheStorage", "risk": "stateful" },
+        { "base": "appSupport", "glob": "VSCodium/WebStorage", "risk": "stateful" }
       ]
     },
     {
@@ -99,6 +327,8 @@
       "why": "Streaming cache is re-downloaded on demand.",
       "paths": [
         { "base": "appSupport", "glob": "Spotify/PersistentCache" },
+        { "base": "appSupport", "glob": "Spotify/Crashpad" },
+        { "base": "appSupport", "glob": "Spotify/Service Worker/CacheStorage", "risk": "stateful" },
         { "base": "caches", "glob": "com.spotify.client" }
       ]
     },
@@ -114,7 +344,8 @@
         { "base": "appSupport", "glob": "Slack/Cache" },
         { "base": "appSupport", "glob": "Slack/Code Cache" },
         { "base": "appSupport", "glob": "Slack/GPUCache" },
-        { "base": "appSupport", "glob": "Slack/Service Worker/CacheStorage" }
+        { "base": "appSupport", "glob": "Slack/Crashpad" },
+        { "base": "appSupport", "glob": "Slack/Service Worker/CacheStorage", "risk": "stateful" }
       ]
     },
     {
@@ -128,7 +359,9 @@
       "paths": [
         { "base": "appSupport", "glob": "discord/Cache" },
         { "base": "appSupport", "glob": "discord/Code Cache" },
-        { "base": "appSupport", "glob": "discord/GPUCache" }
+        { "base": "appSupport", "glob": "discord/GPUCache" },
+        { "base": "appSupport", "glob": "discord/Crashpad" },
+        { "base": "appSupport", "glob": "discord/Service Worker/CacheStorage", "risk": "stateful" }
       ]
     },
     {
@@ -143,7 +376,104 @@
         { "base": "appSupport", "glob": "Microsoft/Teams/Cache" },
         { "base": "appSupport", "glob": "Microsoft/Teams/Code Cache" },
         { "base": "appSupport", "glob": "Microsoft/Teams/GPUCache" },
-        { "base": "appSupport", "glob": "Microsoft/Teams/Service Worker/CacheStorage" }
+        { "base": "appSupport", "glob": "Microsoft/Teams/Crashpad" },
+        { "base": "appSupport", "glob": "Microsoft/Teams/Service Worker/CacheStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "notion",
+      "app": "Notion",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Notion/Cache" },
+        { "base": "appSupport", "glob": "Notion/Code Cache" },
+        { "base": "appSupport", "glob": "Notion/GPUCache" },
+        { "base": "appSupport", "glob": "Notion/Crashpad" },
+        { "base": "appSupport", "glob": "Notion/Service Worker/CacheStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "figma",
+      "app": "Figma",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Figma/Cache" },
+        { "base": "appSupport", "glob": "Figma/Code Cache" },
+        { "base": "appSupport", "glob": "Figma/GPUCache" },
+        { "base": "appSupport", "glob": "Figma/Crashpad" },
+        { "base": "appSupport", "glob": "Figma/Service Worker/CacheStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "postman",
+      "app": "Postman",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Postman/Cache" },
+        { "base": "appSupport", "glob": "Postman/Code Cache" },
+        { "base": "appSupport", "glob": "Postman/GPUCache" },
+        { "base": "appSupport", "glob": "Postman/Crashpad" },
+        { "base": "appSupport", "glob": "Postman/Service Worker/CacheStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "obsidian",
+      "app": "Obsidian",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "obsidian/Cache" },
+        { "base": "appSupport", "glob": "obsidian/Code Cache" },
+        { "base": "appSupport", "glob": "obsidian/GPUCache" },
+        { "base": "appSupport", "glob": "obsidian/Crashpad" },
+        { "base": "appSupport", "glob": "obsidian/Service Worker/CacheStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "signal",
+      "app": "Signal",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "Signal/Cache" },
+        { "base": "appSupport", "glob": "Signal/Code Cache" },
+        { "base": "appSupport", "glob": "Signal/GPUCache" },
+        { "base": "appSupport", "glob": "Signal/Crashpad" },
+        { "base": "appSupport", "glob": "Signal/Service Worker/CacheStorage", "risk": "stateful" }
+      ]
+    },
+    {
+      "id": "whatsapp",
+      "app": "WhatsApp",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Regenerated on next launch.",
+      "paths": [
+        { "base": "appSupport", "glob": "WhatsApp/Cache" },
+        { "base": "appSupport", "glob": "WhatsApp/Code Cache" },
+        { "base": "appSupport", "glob": "WhatsApp/GPUCache" },
+        { "base": "appSupport", "glob": "WhatsApp/Crashpad" },
+        { "base": "appSupport", "glob": "WhatsApp/Service Worker/CacheStorage", "risk": "stateful" }
       ]
     },
     {
@@ -220,13 +550,23 @@
     },
     {
       "id": "dev.yarn",
-      "app": "Yarn cache",
+      "app": "Yarn classic cache",
       "appBundleID": null,
       "requiresInstalled": false,
       "category": "appCaches",
       "risk": "safe",
       "why": "Package cache is re-fetched on demand.",
       "paths": [ { "base": "caches", "glob": "Yarn" } ]
+    },
+    {
+      "id": "dev.yarn.berry",
+      "app": "Yarn Berry cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Package cache is re-fetched on demand.",
+      "paths": [ { "base": "home", "glob": ".yarn/berry/cache" } ]
     },
     {
       "id": "dev.gradle",
@@ -249,6 +589,26 @@
       "paths": [ { "base": "caches", "glob": "CocoaPods" } ]
     },
     {
+      "id": "dev.cocoapods.repos",
+      "app": "CocoaPods spec repos",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "rebuildable",
+      "why": "Spec repos are re-cloned by pod install on demand.",
+      "paths": [ { "base": "home", "glob": ".cocoapods/repos" } ]
+    },
+    {
+      "id": "dev.composer",
+      "app": "Composer cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Package cache is re-fetched on demand.",
+      "paths": [ { "base": "home", "glob": ".composer/cache" } ]
+    },
+    {
       "id": "dev.cargo",
       "app": "Cargo registry cache",
       "appBundleID": null,
@@ -257,6 +617,49 @@
       "risk": "safe",
       "why": "Crate cache is re-fetched on demand.",
       "paths": [ { "base": "home", "glob": ".cargo/registry/cache" } ]
+    },
+    {
+      "id": "dev.swiftpm",
+      "app": "Swift Package Manager cache",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Package cache is re-fetched on demand.",
+      "paths": [ { "base": "caches", "glob": "org.swift.swiftpm" } ]
+    },
+    {
+      "id": "dev.xcpgdevices",
+      "app": "Xcode Playground devices",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Playground device data is rebuilt on demand.",
+      "paths": [ { "base": "home", "glob": "Library/Developer/XCPGDevices" } ]
+    },
+    {
+      "id": "dev.coresimulator.logs",
+      "app": "CoreSimulator logs",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Simulator logs are not needed after sessions complete.",
+      "paths": [ { "base": "logs", "glob": "CoreSimulator" } ]
+    },
+    {
+      "id": "jetbrains",
+      "app": "JetBrains IDEs",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Old-version caches and logs are rebuilt by the current IDE on demand.",
+      "paths": [
+        { "base": "caches", "glob": "JetBrains" },
+        { "base": "logs", "glob": "JetBrains" }
+      ]
     },
     {
       "id": "xcode.deriveddata",
@@ -269,6 +672,26 @@
       "paths": [ { "base": "xcode", "glob": "DerivedData" } ]
     },
     {
+      "id": "xcode.products",
+      "app": "Xcode build products",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Build products are re-created on the next build.",
+      "paths": [ { "base": "xcode", "glob": "Products" } ]
+    },
+    {
+      "id": "xcode.devicelogs",
+      "app": "Xcode device logs",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "systemLogs",
+      "risk": "safe",
+      "why": "Device crash logs re-sync when a device reconnects.",
+      "paths": [ { "base": "xcode", "glob": "iOS Device Logs" } ]
+    },
+    {
       "id": "xcode.devicesupport",
       "app": "Xcode iOS DeviceSupport",
       "appBundleID": null,
@@ -279,6 +702,36 @@
       "paths": [ { "base": "xcode", "glob": "iOS DeviceSupport" } ]
     },
     {
+      "id": "xcode.watchos-devicesupport",
+      "app": "Xcode watchOS DeviceSupport",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Re-downloaded when a watch reconnects; large but recoverable.",
+      "paths": [ { "base": "xcode", "glob": "watchOS DeviceSupport" } ]
+    },
+    {
+      "id": "xcode.tvos-devicesupport",
+      "app": "Xcode tvOS DeviceSupport",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Re-downloaded when a TV reconnects; large but recoverable.",
+      "paths": [ { "base": "xcode", "glob": "tvOS DeviceSupport" } ]
+    },
+    {
+      "id": "xcode.visionos-devicesupport",
+      "app": "Xcode visionOS DeviceSupport",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "safe",
+      "why": "Re-downloaded when a Vision Pro reconnects; large but recoverable.",
+      "paths": [ { "base": "xcode", "glob": "visionOS DeviceSupport" } ]
+    },
+    {
       "id": "coresimulator.caches",
       "app": "CoreSimulator caches",
       "appBundleID": null,
@@ -287,6 +740,16 @@
       "risk": "safe",
       "why": "Rebuilt by the simulator on demand.",
       "paths": [ { "base": "home", "glob": "Library/Developer/CoreSimulator/Caches" } ]
+    },
+    {
+      "id": "xcode.archives",
+      "app": "Xcode Archives",
+      "appBundleID": null,
+      "requiresInstalled": false,
+      "category": "appCaches",
+      "risk": "stateful",
+      "why": "Shipped build artifacts and dSYMs — needed to symbolicate crashes or resubmit. Opt-in only.",
+      "paths": [ { "base": "xcode", "glob": "Archives" } ]
     },
     {
       "id": "system.diagnosticreports",
@@ -303,7 +766,7 @@
       "app": "QuickLook thumbnails",
       "appBundleID": null,
       "requiresInstalled": false,
-      "category": "systemLogs",
+      "category": "appCaches",
       "risk": "safe",
       "why": "Thumbnails regenerate on demand.",
       "paths": [ { "base": "caches", "glob": "com.apple.QuickLook.thumbnailcache" } ]
@@ -311,7 +774,7 @@
   ],
   "projectRoots": ["~/projects"],
   "projectArtifacts": [
-    "node_modules", ".venv", "venv", ".build", "dist", "build",
+    "node_modules", ".build", "dist", "build",
     ".next", "__pycache__", "DerivedData", ".ruff_cache", "target"
   ]
 }

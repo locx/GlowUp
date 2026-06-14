@@ -14,15 +14,23 @@ public enum WorkspaceStorageScanner {
       let meta = dir.appending(path: "workspace.json")
       guard let data = try? Data(contentsOf: meta),
             let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let folder = obj["folder"] as? String,
-            let folderURL = URL(string: folder), folderURL.isFileURL
+            let folder = obj["folder"] as? String
       else { continue }
-      if !fm.fileExists(atPath: folderURL.path), !DenyList.vetoes(dir, home: home) {
+      // Older builds wrote raw POSIX paths, newer ones file:// URIs. Remote URIs stay
+      // skipped — a remote workspace's absence can't be verified from this machine.
+      let folderPath: String
+      if folder.hasPrefix("/") {
+        folderPath = folder
+      } else if let folderURL = URL(string: folder), folderURL.isFileURL {
+        folderPath = folderURL.path
+      } else { continue }
+      if !fm.fileExists(atPath: folderPath) {
+        // Workspace storage holds extension state, not cache — keep it out of the default one-click set.
         out.append(Candidate(ruleID: "workspace.\(id)", app: "Visual Studio Code",
                              category: "workspaceOrphans", risk: .rebuildable,
                              why: "Workspace folder no longer exists.", url: dir))
       }
     }
-    return out.sorted { $0.url.path < $1.url.path }
+    return out.sortedByPath()
   }
 }

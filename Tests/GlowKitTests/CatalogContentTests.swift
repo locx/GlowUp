@@ -8,10 +8,13 @@ final class CatalogContentTests: XCTestCase {
   func test_catalogHasBroadCoverage() throws {
     let ids = Set(try catalog().rules.map(\.id))
     for expected in ["chrome", "firefox", "vscode", "slack",
-                     "xcode.deriveddata", "dev.npm", "system.diagnosticreports"] {
+                     "xcode.deriveddata", "dev.npm", "system.diagnosticreports",
+                     "vscode.insiders", "cursor", "vivaldi",
+                     "jetbrains",
+                     "chrome.netcache", "firefox.netcache"] {
       XCTAssertTrue(ids.contains(expected), "missing rule \(expected)")
     }
-    XCTAssertGreaterThanOrEqual(try catalog().rules.count, 20)
+    XCTAssertGreaterThanOrEqual(try catalog().rules.count, 55)
   }
 
   func test_everyRuleHasNonEmptyWhyAndPaths() throws {
@@ -36,6 +39,16 @@ final class CatalogContentTests: XCTestCase {
         XCTAssertFalse(spec.glob.contains("**"),
                        "rule \(rule.id) uses ** in \(spec.glob)")
       }
+    }
+  }
+
+  func test_projectArtifactsNeverTargetVirtualEnvs() throws {
+    // Virtualenvs anchor active workspaces (interpreter paths, IDE configs) —
+    // deleting them breaks projects, so they must never ship as artifacts.
+    let vetoed: Set<String> = [".venv", "venv", "env", ".env", "virtualenv", ".virtualenvs"]
+    for name in try catalog().projectArtifacts {
+      XCTAssertFalse(vetoed.contains(name.lowercased()),
+                     "projectArtifacts must not include virtualenv dir \(name)")
     }
   }
 

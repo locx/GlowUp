@@ -5,6 +5,11 @@ set -euo pipefail
 CATALOG="${1:-$(dirname "$0")/../Sources/GlowKit/Resources/catalog.json}"
 HOME_DIR="${HOME}"
 
+# A flag-looking $1 would otherwise be fed to jq as a catalog path and die cryptically.
+if [ ! -f "${CATALOG}" ]; then
+  echo "usage: glowup.sh [catalog.json]" >&2; exit 2
+fi
+
 if ! command -v jq >/dev/null 2>&1; then
   echo "glowup.sh requires jq" >&2; exit 2
 fi
@@ -38,4 +43,5 @@ while IFS=$'\t' read -r base glob risk; do
   done
 done < <(jq -r '.rules[] | .risk as $r | .paths[] | [.base, .glob, (.risk // $r)] | @tsv' "${CATALOG}")
 
-echo "Would free ~$((total / 1024)) MB (dry run — nothing was moved)."
+# Decimal output so small caches don't truncate to a misleading "0 MB".
+echo "Would free ~$(awk "BEGIN{printf \"%.1f\", ${total}/1024}") MB (dry run — nothing was moved)."

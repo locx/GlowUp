@@ -1,4 +1,5 @@
 import Foundation
+import GlowKit
 
 public enum ReclaimLabel {
   // Trashing frees nothing until the Trash is emptied — copy never overclaims.
@@ -17,9 +18,5 @@ public enum ReclaimLabel {
     bytes <= 0 ? "Nothing to clean" : "Freed \(format(bytes))"
   }
 
-  public static func format(_ bytes: Int64) -> String {
-    let f = ByteCountFormatter()
-    f.countStyle = .file
-    return f.string(fromByteCount: bytes)
-  }
+  public static func format(_ bytes: Int64) -> String { ByteFormat.string(bytes) }
 }

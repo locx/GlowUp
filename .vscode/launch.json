@@ -39,6 +39,26 @@
             "target": "glowup",
             "configuration": "release",
             "preLaunchTask": "swift: Build Release glowup"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:GlowUp}",
+            "name": "Debug GlowUpApp",
+            "target": "GlowUpApp",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug GlowUpApp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:GlowUp}",
+            "name": "Release GlowUpApp",
+            "target": "GlowUpApp",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release GlowUpApp"
         }
     ]
 }

@@ -7,7 +7,10 @@ final class RiskTests: XCTestCase {
     XCTAssertEqual(try JSONDecoder().decode(Risk.self, from: data), .stateful)
   }
 
-  func test_safeIsDefaultSelectable() {
-    XCTAssertEqual(Risk.allCases.filter { $0.isDefaultSelected }, [.safe])
+  func test_defaultSelectableTiers() {
+    XCTAssertEqual(Risk.defaultSelectable, [.safe, .rebuildable])
+    XCTAssertEqual(Risk.cleanTiers(advanced: false), [.safe])
+    XCTAssertEqual(Risk.scanTiers(advanced: false), [.safe])
+    XCTAssertEqual(Risk.scanTiers(advanced: true), Set(Risk.allCases))
   }
 }
