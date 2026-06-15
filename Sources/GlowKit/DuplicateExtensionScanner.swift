@@ -2,10 +2,13 @@ import Foundation
 
 public enum DuplicateExtensionScanner {
   // Older versions of the same VSCode extension under ~/.vscode/extensions.
-  public static func scan(home: URL) -> [Candidate] {
+  public static func scan(home: URL, diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     let fm = FileManager.default
     let dir = home.appending(path: ".vscode/extensions")
-    guard let names = try? fm.contentsOfDirectory(atPath: dir.path) else { return [] }
+    guard let names = try? fm.contentsOfDirectory(atPath: dir.path) else {
+      diagnostics?.recordFailure(dir)
+      return []
+    }
 
     // Group dir names by extension id (publisher.name), keeping each version.
     var groups: [String: [(version: [Int], name: String)]] = [:]

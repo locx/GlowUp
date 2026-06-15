@@ -5,19 +5,20 @@ import Foundation
 // scanner can never bypass the deny-list or data-store protections.
 public enum CleanupScan {
   public static func candidates(home: URL, catalog: Catalog, inventory: AppInventory,
-                                includeRisks: Set<Risk>, advanced: Bool) -> [Candidate] {
+                                includeRisks: Set<Risk>, advanced: Bool,
+                                diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     let catalogHits = Scanner(catalog: catalog, inventory: inventory)
-      .scan(home: home, includeRisks: includeRisks)
-    var swept = GenericCacheScanner.scan(home: home)
-    swept += DuplicateExtensionScanner.scan(home: home)
+      .scan(home: home, includeRisks: includeRisks, diagnostics: diagnostics)
+    var swept = GenericCacheScanner.scan(home: home, diagnostics: diagnostics)
+    swept += DuplicateExtensionScanner.scan(home: home, diagnostics: diagnostics)
     // These sweeps emit rebuildable-only candidates — skip their walks (and the app-inventory
     // build) when that tier can't pass the filter below anyway.
     if includeRisks.contains(.rebuildable) {
-      swept += OrphanScanner.scan(home: home, known: inventory.knownSet())
-      swept += WorkspaceStorageScanner.scan(home: home)
+      swept += OrphanScanner.scan(home: home, known: inventory.knownSet(), diagnostics: diagnostics)
+      swept += WorkspaceStorageScanner.scan(home: home, diagnostics: diagnostics)
       // `advanced` gates the deep project-artifact walk on its own, so widening tiers
       // never silently switches on that expensive scan.
-      if advanced { swept += AdvancedScan.run(home: home, catalog: catalog) }  // project artifacts
+      if advanced { swept += AdvancedScan.run(home: home, catalog: catalog, diagnostics: diagnostics) }  // project artifacts
     }
     swept = swept.filter { includeRisks.contains($0.risk) }
     // A vetted catalog rule is authoritative: drop any swept hit that nests with one so the generic

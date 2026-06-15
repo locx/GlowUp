@@ -7,20 +7,26 @@ public enum GenericCacheScanner {
     "Crashpad", "CachedData", "Cached Data", "CachedExtensionVSIXs", "logs", "Logs",
   ]
 
-  public static func scan(home: URL) -> [Candidate] {
-    var out = topLevelCaches(in: home.appending(path: "Library/Caches"), category: "appCaches")
-    out += topLevelCaches(in: home.appending(path: "Library/Logs"), category: "systemLogs")
-    out += appSupportCaches(home: home)
-    out += containerCaches(home: home)
+  public static func scan(home: URL, diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
+    var out = topLevelCaches(in: home.appending(path: "Library/Caches"), category: "appCaches",
+                             diagnostics: diagnostics)
+    out += topLevelCaches(in: home.appending(path: "Library/Logs"), category: "systemLogs",
+                          diagnostics: diagnostics)
+    out += appSupportCaches(home: home, diagnostics: diagnostics)
+    out += containerCaches(home: home, diagnostics: diagnostics)
     return out.sortedByPath()
   }
 
   // Top-level entries under a throwaway root (Caches, Logs) — each a whole-dir candidate.
-  private static func topLevelCaches(in root: URL, category: String) -> [Candidate] {
+  private static func topLevelCaches(in root: URL, category: String,
+                                     diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     let fm = FileManager.default
     guard let entries = try? fm.contentsOfDirectory(
       at: root, includingPropertiesForKeys: [.isSymbolicLinkKey], options: []
-    ) else { return [] }
+    ) else {
+      diagnostics?.recordFailure(root)
+      return []
+    }
 
     var out: [Candidate] = []
     for url in entries {
@@ -37,26 +43,30 @@ public enum GenericCacheScanner {
   }
 
   // Sweep only cache-named subfolders inside each app — never the app dir or its data stores.
-  private static func appSupportCaches(home: URL) -> [Candidate] {
+  private static func appSupportCaches(home: URL, diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     cacheSubfolders(under: home.appending(path: "Library/Application Support"),
-                    relativeCachePaths: appSupportCacheNames)
+                    relativeCachePaths: appSupportCacheNames, diagnostics: diagnostics)
   }
 
   // Sandboxed-app and group-container caches — only the Caches subfolder, never the data dir.
-  private static func containerCaches(home: URL) -> [Candidate] {
+  private static func containerCaches(home: URL, diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     var out = cacheSubfolders(under: home.appending(path: "Library/Containers"),
-                              relativeCachePaths: ["Data/Library/Caches"])
+                              relativeCachePaths: ["Data/Library/Caches"], diagnostics: diagnostics)
     out += cacheSubfolders(under: home.appending(path: "Library/Group Containers"),
-                           relativeCachePaths: ["Library/Caches"])
+                           relativeCachePaths: ["Library/Caches"], diagnostics: diagnostics)
     return out
   }
 
   // For each entry under `root`, emit any existing cache subfolder at `relativeCachePaths`.
-  private static func cacheSubfolders(under root: URL, relativeCachePaths: [String]) -> [Candidate] {
+  private static func cacheSubfolders(under root: URL, relativeCachePaths: [String],
+                                      diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     let fm = FileManager.default
     guard let entries = try? fm.contentsOfDirectory(
       at: root, includingPropertiesForKeys: nil, options: []
-    ) else { return [] }
+    ) else {
+      diagnostics?.recordFailure(root)
+      return []
+    }
 
     var out: [Candidate] = []
     for entry in entries where !entry.lastPathComponent.hasPrefix(".") {

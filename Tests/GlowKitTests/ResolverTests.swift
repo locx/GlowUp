@@ -42,6 +42,22 @@ final class ResolverTests: XCTestCase {
     XCTAssertTrue(Resolver.resolve(spec, home: home).isEmpty)
   }
 
+  // A read the scan can't perform must surface, not vanish — an unreadable dir a `*` enumerates into
+  // is recorded so a permission-denied scan can't masquerade as "nothing to clean".
+  func test_unreadableWildcardDirRecordsDiagnostic() throws {
+    try XCTSkipIf(getuid() == 0, "root bypasses directory permissions")
+    let sub = home.appending(path: "Library/Caches/Locked")
+    try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+    try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: sub.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: sub.path) }
+
+    let diagnostics = ScanDiagnostics()
+    let spec = PathSpec(base: .caches, glob: "Locked/*")
+    _ = Resolver.resolve(spec, home: home, diagnostics: diagnostics)
+    XCTAssertTrue(diagnostics.failedDirectories.contains { $0.path == sub.path },
+                  "unreadable dir not recorded: \(diagnostics.failedDirectories)")
+  }
+
   // Resolved URLs must never escape the base root nor contain "..", for any child name on disk —
   // including names with "*", spaces, dots, and unicode. Seeded by index so runs are reproducible.
   func test_fuzz_resolvedURLsNeverEscapeBaseRoot() throws {

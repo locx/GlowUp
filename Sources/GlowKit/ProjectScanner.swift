@@ -3,20 +3,25 @@ import Foundation
 public enum ProjectScanner {
   // Artifact dirs under project roots; does not recurse into a matched artifact.
   public static func scan(roots: [URL], artifacts: Set<String>,
-                          maxDepth: Int = 6) -> [Candidate] {
+                          maxDepth: Int = 6,
+                          diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     let fm = FileManager.default
     var out: [Candidate] = []
     for root in roots { walk(root, depth: 0, fm: fm, artifacts: artifacts,
-                              maxDepth: maxDepth, out: &out) }
+                              maxDepth: maxDepth, diagnostics: diagnostics, out: &out) }
     return out.sortedByPath()
   }
 
   private static func walk(_ dir: URL, depth: Int, fm: FileManager,
                            artifacts: Set<String>, maxDepth: Int,
+                           diagnostics: ScanDiagnostics? = nil,
                            out: inout [Candidate]) {
-    guard depth <= maxDepth,
-          let entries = try? fm.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else { return }
+    guard depth <= maxDepth else { return }
+    guard let entries = try? fm.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else {
+      diagnostics?.recordFailure(dir)
+      return
+    }
     for entry in entries {
       let vals = try? entry.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
       // Skip symlinks so the walk can't escape the root or loop.
@@ -27,7 +32,7 @@ public enum ProjectScanner {
                              why: "Rebuilt from source on demand.", url: entry))
       } else {
         walk(entry, depth: depth + 1, fm: fm, artifacts: artifacts,
-             maxDepth: maxDepth, out: &out)
+             maxDepth: maxDepth, diagnostics: diagnostics, out: &out)
       }
     }
   }
