@@ -21,6 +21,10 @@ public enum Resolver {
                    .filter { !DenyList.vetoes($0, home: home) }
   }
 
+  // Caps the wildcard fan-out so a pathological directory can't freeze the scan; a truncated
+  // listing is incomplete, not unsafe — every survivor still faces the deny-list downstream.
+  private static let maxChildren = 500
+
   private static func children(_ dir: URL, matching pattern: String,
                                diagnostics: ScanDiagnostics? = nil) -> [URL] {
     let fm = FileManager.default
@@ -28,8 +32,8 @@ public enum Resolver {
       diagnostics?.recordFailure(dir)
       return []
     }
-    return names
-      .filter { fnmatch(pattern, $0, 0) == 0 }
-      .map { dir.appending(path: $0) }
+    let matches = names.filter { fnmatch(pattern, $0, 0) == 0 }
+    if matches.count > maxChildren { diagnostics?.recordFailure(dir) }
+    return matches.prefix(maxChildren).map { dir.appending(path: $0) }
   }
 }

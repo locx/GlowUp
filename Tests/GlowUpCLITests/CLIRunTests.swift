@@ -234,6 +234,21 @@ final class CLIRunTests: XCTestCase {
     XCTAssertFalse(out.contains("\u{1B}["))
   }
 
+  // A directory the scan can't read must surface, so an incomplete result isn't read as "clean".
+  func test_unreadableDirSurfacesDiagnostics() async throws {
+    try XCTSkipIf(getuid() == 0, "root bypasses directory permissions")
+    let locked = home.appending(path: "projects/myapp/locked")
+    try FileManager.default.createDirectory(at: locked, withIntermediateDirectories: true)
+    try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path) }
+
+    let (out, _) = await run(["--advanced", "--json"])
+    let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any])
+    let diag = try XCTUnwrap(obj["diagnostics"] as? [String],
+                             "--json must carry diagnostics when a dir can't be read")
+    XCTAssertTrue(diag.contains { $0.contains("locked") }, "the unreadable dir must be listed")
+  }
+
   // Behavioral-diff seam: a catalog or sweeper change can be checked by diffing this set of
   // flagged paths before vs after — any path in `after` but not `before` is a finding to justify.
   // Paths are canonicalized so catalog hits and symlink-resolved sweeper hits compare in one space.

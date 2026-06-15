@@ -47,6 +47,8 @@ public final class AppModel: ObservableObject {
   @Published public private(set) var catalogLoadFailed: Bool = false
   /// True when Full Disk Access is off; an empty scan then means "limited", not "already clean".
   @Published public private(set) var limitedAccess: Bool = false
+  /// Directories the last scan couldn't fully read, so an incomplete result isn't read as "clean".
+  @Published public private(set) var scanDiagnostics: [URL] = []
   /// Size of system `/Library/Caches`; the advanced, root-only, NON-recoverable clean.
   @Published public private(set) var systemCacheBytes: Int64 = 0
   /// Candidates grouped for the review list; recomputed on scan, not per render.
@@ -103,10 +105,12 @@ public final class AppModel: ObservableObject {
       AdvancedScan.reports(home: home)
     }.value
     // Filesystem walks run off the main actor so the UI doesn't stall for the whole scan.
-    let deduped = await Task.detached(priority: .userInitiated) { [catalog, home, inventory, advanced] in
+    let diag = ScanDiagnostics()
+    let deduped = await Task.detached(priority: .userInitiated) { [catalog, home, inventory, advanced, diag] in
       CleanupScan.candidates(home: home, catalog: catalog, inventory: inventory,
-                             includeRisks: includeRisks, advanced: advanced)
+                             includeRisks: includeRisks, advanced: advanced, diagnostics: diag)
     }.value
+    scanDiagnostics = diag.failedDirectories
     let measured = await SizeMeasurer.measure(deduped.map(\.url))
     // Drop empty candidates — nothing to reclaim, just noise in the list.
     let kept = deduped.filter { (measured[$0.url] ?? 0) > 0 }

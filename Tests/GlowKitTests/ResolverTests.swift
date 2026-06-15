@@ -58,6 +58,23 @@ final class ResolverTests: XCTestCase {
                   "unreadable dir not recorded: \(diagnostics.failedDirectories)")
   }
 
+  // A pathological directory must not freeze the scan: the wildcard fan-out is capped at 500 and
+  // the truncation is recorded, since a capped listing is incomplete, not "nothing to clean".
+  func test_wildcardFanOutIsCappedAndRecorded() throws {
+    let bulk = home.appending(path: "Library/Caches/bulk")
+    try FileManager.default.createDirectory(at: bulk, withIntermediateDirectories: true)
+    for i in 0..<600 {
+      try FileManager.default.createDirectory(
+        at: bulk.appending(path: "d\(i)"), withIntermediateDirectories: true)
+    }
+    let diagnostics = ScanDiagnostics()
+    let spec = PathSpec(base: .caches, glob: "bulk/*")
+    let urls = Resolver.resolve(spec, home: home, diagnostics: diagnostics)
+    XCTAssertEqual(urls.count, 500, "fan-out must be capped at 500")
+    XCTAssertTrue(diagnostics.failedDirectories.contains { $0.path == bulk.path },
+                  "the truncated dir must be recorded")
+  }
+
   // Resolved URLs must never escape the base root nor contain "..", for any child name on disk —
   // including names with "*", spaces, dots, and unicode. Seeded by index so runs are reproducible.
   func test_fuzz_resolvedURLsNeverEscapeBaseRoot() throws {
