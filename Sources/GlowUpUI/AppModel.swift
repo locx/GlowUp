@@ -238,8 +238,7 @@ public final class AppModel: ObservableObject {
   public func emptyTrash() {
     // Never empty while a clean/restore is moving files through the Trash — Finder's empty would race them.
     guard phase != .cleaning, !restoring, !quickCleanBusy else { return }
-    // Clear any stale warning, disable immediately, then re-stat so a failed empty re-enables the button.
-    lastCleanWarning = nil
+    // Disable immediately, then re-stat so a failed Finder empty re-enables the button.
     trashCount = 0
     Task {
       let ok = await Task.detached(priority: .userInitiated) { EmptyTrash.empty() }.value
