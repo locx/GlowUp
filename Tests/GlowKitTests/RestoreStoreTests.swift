@@ -77,6 +77,43 @@ final class RestoreStoreTests: XCTestCase {
     XCTAssertTrue(FileManager.default.fileExists(atPath: trashed.path))
   }
 
+  // Restore must only MOVE items back — never delete — so trash-only/reversibility holds through undo.
+  func test_restoreDeletesNothingBeyondTheMove() throws {
+    let original = dir.appending(path: "doc.txt")
+    let trashed = dir.appending(path: "_bin/doc.txt")
+    try FileManager.default.createDirectory(
+      at: trashed.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("hello".utf8).write(to: trashed)
+    let bystander = dir.appending(path: "_bin/keep.txt")   // a sibling restore must never touch
+    try Data("keep".utf8).write(to: bystander)
+
+    let item = TrashedItem(originalPath: original.path, trashedPath: trashed.path)
+    let result = RestoreStore(storeURL: store).restore(batch("b", [item]))
+
+    XCTAssertEqual(result.restored, 1)
+    XCTAssertEqual(try String(contentsOf: original), "hello")          // moved back intact
+    XCTAssertFalse(FileManager.default.fileExists(atPath: trashed.path)) // moved, not copied
+    XCTAssertTrue(FileManager.default.fileExists(atPath: bystander.path),
+                  "restore must not delete bystander files")
+  }
+
+  // Re-restoring an already-restored batch must be a safe no-op, not a re-trash or a crash.
+  func test_restoreIsIdempotentOnAlreadyRestoredBatch() throws {
+    let original = dir.appending(path: "doc.txt")
+    let trashed = dir.appending(path: "_bin/doc.txt")
+    try FileManager.default.createDirectory(
+      at: trashed.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("hello".utf8).write(to: trashed)
+    let item = TrashedItem(originalPath: original.path, trashedPath: trashed.path)
+    let s = RestoreStore(storeURL: store)
+
+    XCTAssertEqual(s.restore(batch("b", [item])).restored, 1)
+    let again = s.restore(batch("b", [item]))
+    XCTAssertEqual(again.restored, 0)
+    XCTAssertEqual(again.failed.count, 1)
+    XCTAssertEqual(try String(contentsOf: original), "hello", "the restored file must be untouched")
+  }
+
   func test_restoreReportsPartialFailureWhenTrashEmptied() throws {
     let gonePath = dir.appending(path: "_bin/gone.txt").path   // never created
     let item = TrashedItem(originalPath: dir.appending(path: "gone.txt").path,

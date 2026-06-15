@@ -444,11 +444,11 @@ final class AppModelTests: XCTestCase {
   }
 
   // Proves the injected seam is live: only the distinct Advanced-gated methods reach the runners.
-  func test_permanentOpsRouteThroughInjectedRunners() throws {
+  func test_permanentOpsRouteThroughInjectedRunners() async throws {
     let root = SpyRoot(); let shell = SpyShell()
     rootSpy = root; shellSpy = shell
     let m = try model()
-    _ = m.removeUnavailableSimulators()
+    _ = await m.removeUnavailableSimulators()
     XCTAssertTrue(shell.fired, "removeUnavailableSimulators must use the injected shell runner")
     XCTAssertFalse(root.fired, "simulator removal must not touch the root runner")
   }

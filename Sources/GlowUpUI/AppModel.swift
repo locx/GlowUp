@@ -224,15 +224,21 @@ public final class AppModel: ObservableObject {
   }
 
   // Root, permanent (no Trash) — gated behind an Advanced opt-in + admin prompt in the UI.
-  public func cleanSystemCaches() -> Bool {
-    let ok = SystemCacheCleaner.cleanAll(runner: rootRunner)
-    Task { await refreshSystemCaches() }
+  // Runs off the main actor so the admin prompt's blocking wait can't freeze the UI.
+  public func cleanSystemCaches() async -> Bool {
+    let ok = await Task.detached(priority: .userInitiated) { [rootRunner] in
+      SystemCacheCleaner.cleanAll(runner: rootRunner)
+    }.value
+    await refreshSystemCaches()
     return ok
   }
 
   // Removes simulator devices macOS marks unavailable; permanent but safe (they're already unusable).
-  public func removeUnavailableSimulators() -> Bool {
-    SimulatorCleaner.deleteUnavailable(runner: shellRunner)
+  // Off the main actor so the simctl subprocess wait can't freeze the UI.
+  public func removeUnavailableSimulators() async -> Bool {
+    await Task.detached(priority: .userInitiated) { [shellRunner] in
+      SimulatorCleaner.deleteUnavailable(runner: shellRunner)
+    }.value
   }
 
   public func refreshHistory() {

@@ -108,11 +108,15 @@ struct ReviewTreeView: View {
     .alert("Permanently delete the selected items?", isPresented: $confirmPermanent) {
       Button("Delete", role: .destructive) {
         // Permanent actions have no Trash state to inspect afterwards — surface failures here.
-        var failed: [String] = []
-        if selectedPermanent.contains(.system), !model.cleanSystemCaches() { failed.append("system caches") }
-        if selectedPermanent.contains(.simulators), !model.removeUnavailableSimulators() { failed.append("simulators") }
-        permanentFailure = failed.isEmpty ? nil : "Couldn't complete: \(failed.joined(separator: ", "))."
-        selectedPermanent = []
+        // The ops run off the main actor, so the result writes happen after the awaits, in order.
+        let permanent = selectedPermanent
+        Task { @MainActor in
+          var failed: [String] = []
+          if permanent.contains(.system), !(await model.cleanSystemCaches()) { failed.append("system caches") }
+          if permanent.contains(.simulators), !(await model.removeUnavailableSimulators()) { failed.append("simulators") }
+          permanentFailure = failed.isEmpty ? nil : "Couldn't complete: \(failed.joined(separator: ", "))."
+          selectedPermanent = []
+        }
       }
       Button("Cancel", role: .cancel) {}
     } message: {
