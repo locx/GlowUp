@@ -77,7 +77,7 @@ final class AppModelTests: XCTestCase {
                     shellRunner: shellSpy ?? ProcessRunner())
   }
 
-  // Set before calling model() to inject permanent-op spies into the AppModel under test.
+  // Must be set before model() — the initializer reads them, so a spy assigned later isn't injected.
   private var rootSpy: SpyRoot?
   private var shellSpy: SpyShell?
 

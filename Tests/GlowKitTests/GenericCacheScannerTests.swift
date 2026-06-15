@@ -18,6 +18,8 @@ final class GenericCacheScannerTests: XCTestCase {
     try Data().write(to: caches.appending(path: "com.example.app/blob"))
     let out = GenericCacheScanner.scan(home: home)
     XCTAssertTrue(out.contains { $0.url.lastPathComponent == "com.example.app" && $0.risk == .rebuildable })
+    XCTAssertEqual(out.filter { $0.url.lastPathComponent == "com.example.app" }.count, 1,
+                   "exactly one candidate for the single planted cache dir")
   }
 
   func test_sweepsContainerAndGroupContainerCaches() throws {
@@ -32,6 +34,8 @@ final class GenericCacheScannerTests: XCTestCase {
     let out = GenericCacheScanner.scan(home: home)
     XCTAssertTrue(out.contains { $0.url.path.hasSuffix("Containers/com.app/Data/Library/Caches") })
     XCTAssertTrue(out.contains { $0.url.path.hasSuffix("Group Containers/group.app/Library/Caches") })
+    XCTAssertEqual(out.filter { $0.url.lastPathComponent == "Caches" }.count, 2,
+                   "exactly the two planted container caches, no extras")
   }
 
   func test_sweepsLibraryLogsAsSystemLogs() throws {
