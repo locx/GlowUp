@@ -30,6 +30,15 @@ final class RestoreStoreTests: XCTestCase {
     XCTAssertEqual(s2.batches().map(\.id), ["two", "one"])
   }
 
+  func test_removeReturnsFalseWhenIdAbsentTrueWhenPresent() throws {
+    let s = RestoreStore(storeURL: store)
+    try s.record(batch("present", []))
+    XCTAssertFalse(s.remove("missing"), "removing an absent id is a no-op, not a success")
+    XCTAssertEqual(s.batches().map(\.id), ["present"], "an absent-id remove must not alter history")
+    XCTAssertTrue(s.remove("present"), "removing a present id reports the prune")
+    XCTAssertTrue(s.batches().isEmpty)
+  }
+
   func test_restoreMovesItemsBackAndCountsSuccesses() throws {
     // Simulate trashed state: original gone, trashed copy present.
     let original = dir.appending(path: "doc.txt")

@@ -69,12 +69,17 @@ public struct RestoreStore {
   public func batches() -> [CleanupBatch] { load().reversed() }
 
   // Drop a batch — a fully-restored cleanup is no longer in the Trash, so it must leave history.
-  // Returns whether the prune was persisted, so a swallowed write failure can't leave a stale batch.
+  // Returns true only when a batch was actually pruned: an absent id (or swallowed write failure)
+  // returns false so a caller can't read a no-op as a successful removal.
   @discardableResult
   public func remove(_ id: String) -> Bool {
     // A corrupt or unwritable history must leave the batch in place rather than erase the file.
-    do { try mutate { $0.filter { $0.id != id } }; return true }
-    catch { return false }
+    do {
+      return try mutate { all in
+        let next = all.filter { $0.id != id }
+        return next.count < all.count ? next : nil
+      }
+    } catch { return false }
   }
 
   /// Moves a batch's items back and prunes the store to what is still in the Trash:
