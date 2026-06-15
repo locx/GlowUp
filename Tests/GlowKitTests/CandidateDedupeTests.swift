@@ -2,8 +2,8 @@ import XCTest
 @testable import GlowKit
 
 final class CandidateDedupeTests: XCTestCase {
-  private func make(_ path: String) -> Candidate {
-    Candidate(ruleID: "r", app: nil, category: "c", risk: .safe, why: "w",
+  private func make(_ path: String, _ risk: Risk = .safe) -> Candidate {
+    Candidate(ruleID: "r", app: nil, category: "c", risk: risk, why: "w",
               url: URL(fileURLWithPath: path))
   }
 
@@ -39,6 +39,29 @@ final class CandidateDedupeTests: XCTestCase {
     // Order-independent: the privacy hit must win so a cleanable one can't displace it.
     XCTAssertEqual(Candidate.dedupe([safe, privacy]).first?.risk, .privacy)
     XCTAssertEqual(Candidate.dedupe([privacy, safe]).first?.risk, .privacy)
+  }
+
+  func test_dedupeExcludesSubtreeWhenDescendantMoreProtected() {
+    // A safe parent must not trash a privacy child nested under it: drop the whole subtree.
+    let result = Candidate.dedupe([make("/a", .safe), make("/a/b", .privacy)])
+    XCTAssertTrue(result.isEmpty)
+  }
+
+  func test_dedupeExcludesSubtreeWithSiblingsWhenDescendantMoreProtected() {
+    let result = Candidate.dedupe([make("/a", .safe), make("/a/b", .privacy), make("/a/c", .safe)])
+    XCTAssertTrue(result.isEmpty, "no part of a subtree holding protected data is trashed")
+  }
+
+  func test_dedupeKeepsUnrelatedPathAfterExcludedSubtree() {
+    let result = Candidate.dedupe([make("/a", .safe), make("/a/b", .privacy), make("/z", .safe)])
+    XCTAssertEqual(result.map(\.url.path), ["/z"])
+  }
+
+  func test_dedupeKeepsLessProtectedDescendantUnderMoreProtectedAncestor() {
+    // Reverse case unchanged: privacy parent retained, safe child collapsed (parent not auto-cleaned).
+    let result = Candidate.dedupe([make("/a", .privacy), make("/a/b", .safe)])
+    XCTAssertEqual(result.count, 1)
+    XCTAssertEqual(result[0].risk, .privacy)
   }
 
   func test_dedupeKeepsFirstOnDuplicate() {

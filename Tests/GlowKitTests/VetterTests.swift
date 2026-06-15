@@ -69,6 +69,25 @@ final class VetterTests: XCTestCase {
     XCTAssertEqual(DataStoreGuard.names.count, 14)
   }
 
+  func test_caseVariantDataStoreDirIsVetoed() throws {
+    // A store dir written in nonstandard case must still drop its swept parent.
+    for name in ["indexeddb", "LOCAL STORAGE", "cookies"] {
+      let parent = "Library/Caches/host-\(UUID().uuidString)"
+      try mkdir("\(parent)/\(name)")
+      let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
+      XCTAssertTrue(out.isEmpty, "case-variant store name \(name) failed to drop its swept parent")
+    }
+  }
+
+  func test_deeplyNestedCredentialVetoesSweptParent() throws {
+    // A credential four levels down must still veto the swept parent (probe depth matches the guard).
+    let parent = "Library/Caches/deepcreds"
+    try mkdir("\(parent)/a/b/c")
+    try Data().write(to: home.appending(path: "\(parent)/a/b/c/id_rsa"))
+    let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
+    XCTAssertTrue(out.isEmpty, "a credential at the 4th level must drop its swept parent")
+  }
+
   func test_duplicateProtectedPathBothGetCachedVeto() {
     // Two candidates at the same protected path must both be vetoed; the per-scan memo must
     // not let a cached pass leak — neither survives.

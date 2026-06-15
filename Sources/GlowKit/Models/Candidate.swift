@@ -32,11 +32,23 @@ public struct Candidate: Sendable, Identifiable, Equatable {
         return $0.1 < $1.1
       }
     var result: [Candidate] = []
-    var lastIncluded: String?
+    var lastIncluded: (path: String, rank: Int)?
+    // A subtree holding a more-protected path than its ancestor is dropped whole, so a cleanable
+    // parent can never trash a privacy/stateful child nested beneath it.
+    var excludedPrefix: String?
     for (p, _, c) in keyed {
-      if let last = lastIncluded, p == last || p.hasPrefix(last + "/") { continue }
+      if let ex = excludedPrefix, p == ex || p.hasPrefix(ex + "/") { continue }
+      excludedPrefix = nil
+      if let last = lastIncluded, p == last.path || p.hasPrefix(last.path + "/") {
+        if c.risk.protectionRank > last.rank {
+          result.removeLast()
+          excludedPrefix = last.path
+          lastIncluded = nil
+        }
+        continue
+      }
       result.append(c)
-      lastIncluded = p
+      lastIncluded = (p, c.risk.protectionRank)
     }
     return result
   }
