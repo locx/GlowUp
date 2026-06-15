@@ -67,6 +67,29 @@ final class SafetyLintTests: XCTestCase {
     XCTAssertFalse(survivingNames.contains("Leftover"))
   }
 
+  // Guards against the gate over-reaching: a genuine, credential-free, store-free cache must
+  // still pass. Without this, an overly broad deny-list could silently zero out every candidate.
+  func test_genuineCachePathSurvivesTheGate() throws {
+    let fm = FileManager.default
+    func mk(_ rel: String) throws {
+      try fm.createDirectory(at: home.appending(path: rel), withIntermediateDirectories: true)
+    }
+    try mk("Library/Caches/com.example.app")
+    try Data().write(to: home.appending(path: "Library/Caches/com.example.app/cache.bin"))
+    try mk("Library/Containers/com.example.app/Data/Library/Caches/blob")
+
+    func cand(_ rel: String) -> Candidate {
+      Candidate(ruleID: "t", app: nil, category: "appCaches", risk: .safe,
+                why: "x", url: home.appending(path: rel))
+    }
+    let swept = [cand("Library/Caches/com.example.app"),
+                 cand("Library/Containers/com.example.app/Data/Library/Caches")]
+    let vetted = Vetter.vet(catalog: [], swept: swept, home: home)
+    XCTAssertEqual(Set(vetted.map(\.url.lastPathComponent)),
+                   ["com.example.app", "Caches"],
+                   "genuine cache paths must survive the gate")
+  }
+
   // Ensures shipped rules resolve actual paths when materialized, and that
   // none of those paths land on deny-listed locations.
   func test_shippedRulesResolveCleanlyWhenMaterialized() throws {
