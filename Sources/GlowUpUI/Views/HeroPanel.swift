@@ -26,6 +26,12 @@ struct HeroPanel: View {
               .font(.callout).foregroundStyle(Color.warning)
               .frame(maxWidth: .infinity, alignment: .leading)
           }
+          // Some directories couldn't be read, so an incomplete result isn't mistaken for "clean".
+          if model.phase == .results, !model.scanDiagnostics.isEmpty {
+            Text("Some directories couldn't be read — results may be incomplete.")
+              .font(.callout).foregroundStyle(Color.warning)
+              .frame(maxWidth: .infinity, alignment: .leading)
+          }
           RingView(categoryBytes: slices, totalBytes: ringBytes, phase: model.phase)
           heroLabel
 

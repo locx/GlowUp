@@ -10,7 +10,7 @@ public struct ScanTimer {
 
   public mutating func mark(_ label: String) {
     let now = DispatchTime.now()
-    marks.append((label, Int((now.uptimeNanoseconds &- last.uptimeNanoseconds) / 1_000_000)))
+    marks.append((label, Int(clamping: (now.uptimeNanoseconds &- last.uptimeNanoseconds) / 1_000_000)))
     last = now
   }
 

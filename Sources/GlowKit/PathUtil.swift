@@ -15,14 +15,12 @@ public enum PathUtil {
   // catches traversal; this just gives every layer one consistent resolved path to compare).
   public static func canonicalPath(_ url: URL) -> String { url.resolvingSymlinksInPath().path }
 
-  // A subtree we're denied from reading can't be proven free of credentials/stores,
-  // so the safety probes veto on permission-denied rather than assume the dir is clean.
+  // A subtree we're denied from reading can't be proven free of credentials/stores, so the safety
+  // probes veto on permission-denied — EACCES (DAC) or EPERM (SIP/TCC/sandbox) — rather than assume clean.
   static func isPermissionDenied(_ error: Error) -> Bool {
     let ns = error as NSError
     if ns.domain == NSCocoaErrorDomain, ns.code == NSFileReadNoPermissionError { return true }
-    if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError {
-      return underlying.domain == NSPOSIXErrorDomain && underlying.code == Int(EACCES)
-    }
-    return false
+    let posix = (ns.userInfo[NSUnderlyingErrorKey] as? NSError) ?? ns
+    return posix.domain == NSPOSIXErrorDomain && (posix.code == Int(EACCES) || posix.code == Int(EPERM))
   }
 }

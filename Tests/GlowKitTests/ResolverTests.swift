@@ -63,7 +63,7 @@ final class ResolverTests: XCTestCase {
   func test_wildcardFanOutIsCappedAndRecorded() throws {
     let bulk = home.appending(path: "Library/Caches/bulk")
     try FileManager.default.createDirectory(at: bulk, withIntermediateDirectories: true)
-    for i in 0..<600 {
+    for i in 0..<510 {   // just over the 500 cap — enough to force truncation without a slow setup
       try FileManager.default.createDirectory(
         at: bulk.appending(path: "d\(i)"), withIntermediateDirectories: true)
     }

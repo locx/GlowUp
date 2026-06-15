@@ -280,7 +280,10 @@ final class CLIRunTests: XCTestCase {
     let base = try await candidatePaths()
     let advanced = try await candidatePaths(["--advanced"])
     XCTAssertEqual(base, [canon(safeCacheURL)], "default scan flags exactly the safe-tier cache")
-    XCTAssertTrue(advanced.contains(canon(nodeModulesURL)), "--advanced flags rebuildable artifacts")
+    // Pin the full advanced set (safe + rebuildable + the listed-but-never-cleaned privacy path) so a
+    // spurious sweeper addition is caught, not just a missing one.
+    XCTAssertEqual(advanced, [canon(safeCacheURL), canon(nodeModulesURL), canon(privacyURL)],
+                   "advanced flags exactly the safe cache, the rebuildable artifact, and the privacy path")
     XCTAssertTrue(advanced.isSuperset(of: base),
                   "advanced must be a superset of default — the behavioral-diff invariant")
   }

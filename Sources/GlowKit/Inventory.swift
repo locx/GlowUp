@@ -34,9 +34,9 @@ public final class SystemInventory: AppInventory, @unchecked Sendable {
     return set
   }
 
-  /// Token set broad enough to attribute Library entries to their owning app
-  /// without requiring exact bundle-ID matches.
-  public func installedKnownSet() -> Set<String> {
+  // Internal, not public: knownSet() calls this while holding the cache lock, so exposing it
+  // would let an external caller create a re-entrant lock acquisition.
+  func installedKnownSet() -> Set<String> {
     let fm = FileManager.default
     let appDirs = [
       URL(fileURLWithPath: "/Applications"),

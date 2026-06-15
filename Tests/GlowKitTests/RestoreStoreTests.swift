@@ -111,6 +111,8 @@ final class RestoreStoreTests: XCTestCase {
     let again = s.restore(batch("b", [item]))
     XCTAssertEqual(again.restored, 0)
     XCTAssertEqual(again.failed.count, 1)
+    let err = again.failed[0].1 as NSError   // must fail because the trash entry is gone, not for a logic reason
+    XCTAssertTrue(err.domain == NSCocoaErrorDomain || err.domain == NSPOSIXErrorDomain)
     XCTAssertEqual(try String(contentsOf: original), "hello", "the restored file must be untouched")
   }
 
