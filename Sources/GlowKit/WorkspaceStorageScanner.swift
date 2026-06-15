@@ -2,11 +2,14 @@ import Foundation
 
 public enum WorkspaceStorageScanner {
   // VSCode workspaceStorage entries whose referenced folder no longer exists.
-  public static func scan(home: URL) -> [Candidate] {
+  public static func scan(home: URL, diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     let fm = FileManager.default
     let storage = BaseRoot.appSupport.url(home: home)
       .appending(path: "Code/User/workspaceStorage")
-    guard let ids = try? fm.contentsOfDirectory(atPath: storage.path) else { return [] }
+    guard let ids = try? fm.contentsOfDirectory(atPath: storage.path) else {
+      diagnostics?.recordFailure(storage)
+      return []
+    }
 
     var out: [Candidate] = []
     for id in ids where !id.hasPrefix(".") {

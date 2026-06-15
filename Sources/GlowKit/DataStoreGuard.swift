@@ -12,11 +12,16 @@ public enum DataStoreGuard {
   // Folded once so a store dir in nonstandard case (e.g. "indexeddb") still vetoes its parent.
   private static let lowerNames = Set(names.map { $0.lowercased() })
 
-  // Bounded-depth probe for a known data-store subfolder.
+  // Depth-bounded: deeper costs a full walk for stores that effectively never nest that far.
   public static func holdsDataStore(_ dir: URL, depth: Int = 0) -> Bool {
     guard depth <= 3 else { return false }
     let fm = FileManager.default
-    guard let kids = try? fm.contentsOfDirectory(atPath: dir.path) else { return false }
+    let kids: [String]
+    do {
+      kids = try fm.contentsOfDirectory(atPath: dir.path)
+    } catch {
+      return PathUtil.isPermissionDenied(error)
+    }
     for k in kids {
       if lowerNames.contains(k.lowercased()) { return true }
       var isDir: ObjCBool = false

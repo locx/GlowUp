@@ -5,6 +5,7 @@ public struct CLIOptions: Equatable {
   public var advanced = false
   public var json = false
   public var noColor = false
+  public var perf = false
   public var unknown: [String] = []
 
   // Last mode flag wins; non-mode flags accumulate. Unknown flags are recorded.
@@ -19,6 +20,7 @@ public struct CLIOptions: Equatable {
       case "--advanced": o.advanced = true
       case "--json":     o.json = true
       case "--no-color": o.noColor = true
+      case "--perf":     o.perf = true
       default:           o.unknown.append(arg)
       }
     }

@@ -233,6 +233,60 @@ final class CLIRunTests: XCTestCase {
     let (out, _) = await run(["--list", "--no-color"])
     XCTAssertFalse(out.contains("\u{1B}["))
   }
+
+  // --perf adds per-phase timings to JSON so a measurement has real numbers; it must be opt-in.
+  func test_perfFlagEmitsTimingsInJSON() async throws {
+    let (out, code) = await run(["--json", "--perf"])
+    XCTAssertEqual(code, 0)
+    let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any])
+    let timings = try XCTUnwrap(obj["timings"] as? [String: Any], "--perf must emit timings")
+    XCTAssertNotNil(timings["resolve"])
+    XCTAssertNotNil(timings["measure"])
+
+    let (plain, _) = await run(["--json"])
+    let pobj = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(plain.utf8)) as? [String: Any])
+    XCTAssertNil(pobj["timings"], "timings must be opt-in via --perf")
+  }
+
+  // A directory the scan can't read must surface, so an incomplete result isn't read as "clean".
+  func test_unreadableDirSurfacesDiagnostics() async throws {
+    try XCTSkipIf(getuid() == 0, "root bypasses directory permissions")
+    let locked = home.appending(path: "projects/myapp/locked")
+    try FileManager.default.createDirectory(at: locked, withIntermediateDirectories: true)
+    try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path) }
+
+    let (out, _) = await run(["--advanced", "--json"])
+    let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any])
+    let diag = try XCTUnwrap(obj["diagnostics"] as? [String],
+                             "--json must carry diagnostics when a dir can't be read")
+    XCTAssertTrue(diag.contains { $0.contains("locked") }, "the unreadable dir must be listed")
+  }
+
+  // Behavioral-diff seam: a catalog or sweeper change can be checked by diffing this set of
+  // flagged paths before vs after — any path in `after` but not `before` is a finding to justify.
+  // Paths are canonicalized so catalog hits and symlink-resolved sweeper hits compare in one space.
+  private func candidatePaths(_ args: [String] = []) async throws -> Set<String> {
+    let (out, _) = await run(args + ["--json"])
+    let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any])
+    let items = obj["candidates"] as? [[String: Any]] ?? []
+    return Set(items.compactMap {
+      ($0["path"] as? String).map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
+    })
+  }
+
+  func test_behavioralDiffBaseline() async throws {
+    func canon(_ u: URL) -> String { u.resolvingSymlinksInPath().path }
+    let base = try await candidatePaths()
+    let advanced = try await candidatePaths(["--advanced"])
+    XCTAssertEqual(base, [canon(safeCacheURL)], "default scan flags exactly the safe-tier cache")
+    // Pin the full advanced set (safe + rebuildable + the listed-but-never-cleaned privacy path) so a
+    // spurious sweeper addition is caught, not just a missing one.
+    XCTAssertEqual(advanced, [canon(safeCacheURL), canon(nodeModulesURL), canon(privacyURL)],
+                   "advanced flags exactly the safe cache, the rebuildable artifact, and the privacy path")
+    XCTAssertTrue(advanced.isSuperset(of: base),
+                  "advanced must be a superset of default — the behavioral-diff invariant")
+  }
 }
 
 struct AlwaysInstalled: AppInventory {

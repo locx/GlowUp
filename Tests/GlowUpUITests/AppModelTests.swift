@@ -77,7 +77,7 @@ final class AppModelTests: XCTestCase {
                     shellRunner: shellSpy ?? ProcessRunner())
   }
 
-  // Set before calling model() to inject permanent-op spies into the AppModel under test.
+  // Must be set before model() — the initializer reads them, so a spy assigned later isn't injected.
   private var rootSpy: SpyRoot?
   private var shellSpy: SpyShell?
 
@@ -444,11 +444,11 @@ final class AppModelTests: XCTestCase {
   }
 
   // Proves the injected seam is live: only the distinct Advanced-gated methods reach the runners.
-  func test_permanentOpsRouteThroughInjectedRunners() throws {
+  func test_permanentOpsRouteThroughInjectedRunners() async throws {
     let root = SpyRoot(); let shell = SpyShell()
     rootSpy = root; shellSpy = shell
     let m = try model()
-    _ = m.removeUnavailableSimulators()
+    _ = await m.removeUnavailableSimulators()
     XCTAssertTrue(shell.fired, "removeUnavailableSimulators must use the injected shell runner")
     XCTAssertFalse(root.fired, "simulator removal must not touch the root runner")
   }

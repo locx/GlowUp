@@ -81,7 +81,8 @@ public enum OrphanScanner {
   }
 
   /// Scans home Library subdirs for entries not attributable to any installed app.
-  public static func scan(home: URL, known: Set<String>) -> [Candidate] {
+  public static func scan(home: URL, known: Set<String>,
+                          diagnostics: ScanDiagnostics? = nil) -> [Candidate] {
     let fm = FileManager.default
     let launchdLabels = activeLaunchdLabels(home: home)
     var out: [Candidate] = []
@@ -98,7 +99,10 @@ public enum OrphanScanner {
         at: root,
         includingPropertiesForKeys: [.isSymbolicLinkKey],
         options: []
-      ) else { continue }
+      ) else {
+        diagnostics?.recordFailure(root)
+        continue
+      }
 
       for url in entries {
         let name = url.lastPathComponent

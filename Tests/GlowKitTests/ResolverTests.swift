@@ -42,6 +42,39 @@ final class ResolverTests: XCTestCase {
     XCTAssertTrue(Resolver.resolve(spec, home: home).isEmpty)
   }
 
+  // A read the scan can't perform must surface, not vanish — an unreadable dir a `*` enumerates into
+  // is recorded so a permission-denied scan can't masquerade as "nothing to clean".
+  func test_unreadableWildcardDirRecordsDiagnostic() throws {
+    try XCTSkipIf(getuid() == 0, "root bypasses directory permissions")
+    let sub = home.appending(path: "Library/Caches/Locked")
+    try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+    try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: sub.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: sub.path) }
+
+    let diagnostics = ScanDiagnostics()
+    let spec = PathSpec(base: .caches, glob: "Locked/*")
+    _ = Resolver.resolve(spec, home: home, diagnostics: diagnostics)
+    XCTAssertTrue(diagnostics.failedDirectories.contains { $0.path == sub.path },
+                  "unreadable dir not recorded: \(diagnostics.failedDirectories)")
+  }
+
+  // A pathological directory must not freeze the scan: the wildcard fan-out is capped at 500 and
+  // the truncation is recorded, since a capped listing is incomplete, not "nothing to clean".
+  func test_wildcardFanOutIsCappedAndRecorded() throws {
+    let bulk = home.appending(path: "Library/Caches/bulk")
+    try FileManager.default.createDirectory(at: bulk, withIntermediateDirectories: true)
+    for i in 0..<510 {   // just over the 500 cap — enough to force truncation without a slow setup
+      try FileManager.default.createDirectory(
+        at: bulk.appending(path: "d\(i)"), withIntermediateDirectories: true)
+    }
+    let diagnostics = ScanDiagnostics()
+    let spec = PathSpec(base: .caches, glob: "bulk/*")
+    let urls = Resolver.resolve(spec, home: home, diagnostics: diagnostics)
+    XCTAssertEqual(urls.count, 500, "fan-out must be capped at 500")
+    XCTAssertTrue(diagnostics.failedDirectories.contains { $0.path == bulk.path },
+                  "the truncated dir must be recorded")
+  }
+
   // Resolved URLs must never escape the base root nor contain "..", for any child name on disk —
   // including names with "*", spaces, dots, and unicode. Seeded by index so runs are reproducible.
   func test_fuzz_resolvedURLsNeverEscapeBaseRoot() throws {

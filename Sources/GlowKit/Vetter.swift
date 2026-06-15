@@ -7,7 +7,8 @@ public enum Vetter {
   public static func vet(catalog: [Candidate], swept: [Candidate], home: URL) -> [Candidate] {
     // Resolve $HOME once per scan; the value is identical to resolving it per candidate.
     let resolvedHomePath = home.standardizedFileURL.resolvingSymlinksInPath().path
-    // Memoize the data-store probe per unique resolved path so duplicate swept hits scan disk once.
+    // Keyed on the resolved path (unlike the raw-keyed deny-list cache below): the data-store probe
+    // only reads directory contents, so two symlinks to one dir share a probe instead of two walks.
     var storeCache: [String: Bool] = [:]
     func holdsStore(_ url: URL) -> Bool {
       let resolved = url.resolvingSymlinksInPath()
