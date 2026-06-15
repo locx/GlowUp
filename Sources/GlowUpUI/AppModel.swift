@@ -132,7 +132,11 @@ public final class AppModel: ObservableObject {
     let tiers = Risk.cleanTiers(advanced: advanced)
     let toClean = candidates.filter { selected.contains($0.id) && tiers.contains($0.risk) }
     let items = toClean.map { ($0.url, sizes[$0.id] ?? 0) }
-    let result = Trasher(mover: mover).trash(items)
+    // Trashing off the main actor so a slow Trash volume can't freeze the UI mid-clean.
+    let mover = self.mover
+    let result = await Task.detached(priority: .userInitiated) {
+      Trasher(mover: mover).trash(items)
+    }.value
     lastCleanFailures = result.failures.count
     recordHistory(result.trashed)
     // Sum sizes once per unique path that was successfully trashed (dedupe guarantees no duplicates).
@@ -241,7 +245,8 @@ public final class AppModel: ObservableObject {
     // Disable immediately, then re-stat so a failed Finder empty re-enables the button.
     trashCount = 0
     Task {
-      await Task.detached(priority: .userInitiated) { EmptyTrash.empty() }.value
+      let ok = await Task.detached(priority: .userInitiated) { EmptyTrash.empty() }.value
+      if !ok { lastCleanWarning = "Couldn't empty the Trash — check Finder automation permission." }
       refreshTrash()
     }
   }

@@ -3,12 +3,14 @@ import Foundation
 // Wraps the user-initiated "Empty Trash" action via Finder AppleScript.
 // Invoked only when the user explicitly taps the Empty Trash button — never automatically.
 public enum EmptyTrash {
-  public static func empty() {
+  // Reports the real outcome so a denied or failed Finder empty isn't shown to the user as success.
+  @discardableResult
+  public static func empty() -> Bool {
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
     p.arguments = ["-e", "tell application \"Finder\" to empty trash"]
-    // Wait so callers can re-stat the real outcome instead of assuming success.
-    do { try p.run(); p.waitUntilExit() } catch {}
+    do { try p.run(); p.waitUntilExit() } catch { return false }
+    return p.terminationStatus == 0
   }
 
   // Item count in the user's Trash, so the Empty Trash button can disable when there's nothing to empty.
