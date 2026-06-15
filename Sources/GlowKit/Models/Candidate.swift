@@ -20,10 +20,16 @@ public struct Candidate: Sendable, Identifiable, Equatable {
   // Keyed on the symlink-resolved path so scanners that name the same file collapse; sorting
   // contiguously after each ancestor keeps the descendant drop O(n log n), not O(n^2).
   public static func dedupe(_ candidates: [Candidate]) -> [Candidate] {
+    dedupe(candidates, canonical: { PathUtil.canonicalPath($0.url) })
+  }
+
+  // Variant taking a canonical-path provider so a caller that already resolved each path (the
+  // overlap filter) doesn't pay for a second symlink resolution here.
+  static func dedupe(_ candidates: [Candidate], canonical: (Candidate) -> String) -> [Candidate] {
     // At an equal path keep the most-protected tier, then input order, so the result is
     // deterministic and a cleanable hit can never displace a privacy/stateful one.
     let keyed = candidates.enumerated()
-      .map { (idx, c) in (PathUtil.canonicalPath(c.url), idx, c) }
+      .map { (idx, c) in (canonical(c), idx, c) }
       .sorted {
         if $0.0 != $1.0 { return $0.0 < $1.0 }
         if $0.2.risk.protectionRank != $1.2.risk.protectionRank {

@@ -18,13 +18,18 @@ public enum DenyList {
   // ".key" is excluded here because Keynote/license/cache files make it too ambiguous to veto a parent dir.
   private static let credentialChildSuffixes = [".kdbx", ".pem", ".p12", ".netrc", ".pgpass"]
 
+  // Resolve home so symlinked $HOME and resolved candidate paths are compared in the same space.
   public static func vetoes(_ url: URL, home: URL) -> Bool {
+    vetoes(url, resolvedHomePath: home.standardizedFileURL.resolvingSymlinksInPath().path)
+  }
+
+  // Takes the already-resolved home path so a scan resolves $HOME once, not once per candidate.
+  static func vetoes(_ url: URL, resolvedHomePath: String) -> Bool {
     // Reject before canonicalization if the literal path tries to traverse up.
     if url.pathComponents.contains("..") { return true }
 
     let path = url.standardizedFileURL.resolvingSymlinksInPath().path
-    // Resolve home so symlinked $HOME and resolved candidate paths are compared in the same space.
-    let homePath = home.standardizedFileURL.resolvingSymlinksInPath().path
+    let homePath = resolvedHomePath
     let resolvedHome = URL(fileURLWithPath: homePath)
 
     // Never act on a bare base root (case-insensitive for macOS volumes).

@@ -5,6 +5,8 @@ import Foundation
 // inferred by shape, so they must also not hold a live data store (PWA/app state).
 public enum Vetter {
   public static func vet(catalog: [Candidate], swept: [Candidate], home: URL) -> [Candidate] {
+    // Resolve $HOME once per scan; the value is identical to resolving it per candidate.
+    let resolvedHomePath = home.standardizedFileURL.resolvingSymlinksInPath().path
     // Memoize the data-store probe per unique resolved path so duplicate swept hits scan disk once.
     var storeCache: [String: Bool] = [:]
     func holdsStore(_ url: URL) -> Bool {
@@ -21,7 +23,7 @@ public enum Vetter {
     func vetoes(_ url: URL) -> Bool {
       let key = url.path
       if let cached = vetoCache[key] { return cached }
-      let result = DenyList.vetoes(url, home: home)
+      let result = DenyList.vetoes(url, resolvedHomePath: resolvedHomePath)
       vetoCache[key] = result
       return result
     }

@@ -24,9 +24,16 @@ public enum CleanupScan {
     // sweep can't relabel or re-tier it, which would make a category appear/vanish between modes.
     // Sort catalog paths once so each swept hit's overlap check is a binary search, not an O(catalog)
     // scan; the filter preserves swept's input order so dedupe's protectionRank tie-break is unaffected.
-    let catalogPaths = catalogHits.map { PathUtil.canonicalPath($0.url) }.sorted()
-    swept = swept.filter { !overlapsCatalog(PathUtil.canonicalPath($0.url), catalogPaths) }
-    return Candidate.dedupe(Vetter.vet(catalog: catalogHits, swept: swept, home: home))
+    // Resolve each candidate's canonical path once, shared by the overlap filter and dedupe.
+    var canon: [URL: String] = [:]
+    func canonical(_ c: Candidate) -> String {
+      if let v = canon[c.url] { return v }
+      let v = PathUtil.canonicalPath(c.url); canon[c.url] = v; return v
+    }
+    let catalogPaths = catalogHits.map { canonical($0) }.sorted()
+    swept = swept.filter { !overlapsCatalog(canonical($0), catalogPaths) }
+    return Candidate.dedupe(Vetter.vet(catalog: catalogHits, swept: swept, home: home),
+                            canonical: { canonical($0) })
   }
 
   // True when a sorted catalog path equals, is an ancestor of, or is a descendant of `sp` — the
