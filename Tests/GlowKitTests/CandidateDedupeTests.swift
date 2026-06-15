@@ -57,6 +57,13 @@ final class CandidateDedupeTests: XCTestCase {
     XCTAssertEqual(result.map(\.url.path), ["/z"])
   }
 
+  func test_dedupeExcludesTwoIndependentSubtrees() {
+    // Each subtree holding a more-protected path is dropped whole, independently.
+    let result = Candidate.dedupe([make("/a", .safe), make("/a/b", .privacy),
+                                   make("/b", .safe), make("/b/y", .privacy)])
+    XCTAssertTrue(result.isEmpty)
+  }
+
   func test_dedupeKeepsLessProtectedDescendantUnderMoreProtectedAncestor() {
     // Reverse case unchanged: privacy parent retained, safe child collapsed (parent not auto-cleaned).
     let result = Candidate.dedupe([make("/a", .privacy), make("/a/b", .safe)])
