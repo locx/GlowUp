@@ -211,12 +211,6 @@ public final class AppModel: ObservableObject {
     return (try? FileManager.default.contentsOfDirectory(atPath: probe.path)) != nil
   }
 
-  /// Restrict the selection to what a non-advanced clean may trash — the menu-bar quick action's contract.
-  public func selectSafeOnly() {
-    let tiers = Risk.cleanTiers(advanced: false)
-    selected = Set(candidates.filter { tiers.contains($0.risk) }.map(\.id))
-  }
-
   public func refreshTrash() {
     trashCount = EmptyTrash.itemCount()
   }

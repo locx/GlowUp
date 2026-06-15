@@ -223,7 +223,7 @@ struct ReviewTreeView: View {
   }
 }
 
-// Risk capsule: color + label, never color alone (spec §5 palette).
+// Color + a text label, never color alone, so risk reads without color vision.
 struct RiskCapsule: View {
   let risk: Risk
   var body: some View {

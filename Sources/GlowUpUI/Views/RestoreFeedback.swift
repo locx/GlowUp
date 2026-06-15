@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Shared restore outcome label (spec §2A rule 4 partial-failure honesty).
+// One restore-outcome label so a partial failure is always shown, never rounded to success.
 struct RestoreFeedback: View {
   let result: AppModel.RestoreResult
   var font: Font = .body

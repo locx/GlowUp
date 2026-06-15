@@ -1,7 +1,7 @@
 import SwiftUI
 import GlowKit
 
-// Reports: un-actionable by design (spec §2A rule 1). No checkboxes — ever.
+// Reports are findings only, never cleanup candidates, so they're never selectable.
 struct ReportsView: View {
   @ObservedObject var model: AppModel
 

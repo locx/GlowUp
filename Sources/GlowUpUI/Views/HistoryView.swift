@@ -1,7 +1,7 @@
 import SwiftUI
 import GlowKit
 
-// History view: list all batches newest-first; per-row restore (spec §2A rule 4).
+// Batches newest-first with per-row restore so the latest cleanup is easiest to undo.
 struct HistoryView: View {
   @ObservedObject var model: AppModel
 

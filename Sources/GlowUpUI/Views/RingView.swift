@@ -25,7 +25,7 @@ private struct ArcShape: Shape {
   }
 }
 
-// Hero gauge: concentric segmented arcs per category (spec §7).
+// Concentric arc per category so the reclaim breakdown reads at a glance.
 // Value-typed View — takes only the data it needs, no AppModel reference.
 struct RingView: View {
   let categoryBytes: [CategorySlice]

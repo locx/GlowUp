@@ -1,7 +1,7 @@
 import SwiftUI
 import GlowKit
 
-// Emerald Graphite brand palette and design tokens (spec §7).
+// One source of truth for brand colors and tokens so views never hardcode them.
 public extension Color {
   /// Creates a Color from a hex string like "#10B981" or "10B981".
   init(hex: String) {
@@ -42,7 +42,7 @@ public func categoryName(_ category: String) -> String {
   }
 }
 
-// Risk tier palette (color + label, never color alone — spec §5).
+// Per-tier color paired with a label elsewhere, never color alone, for color-blind legibility.
 public func color(for risk: Risk) -> Color {
   switch risk {
   case .safe:        return Color(hex: "#10B981") // emerald
@@ -52,7 +52,7 @@ public func color(for risk: Risk) -> Color {
   }
 }
 
-// Category → SF Symbol name + tint color (spec §7).
+// Central per-category icon + tint so every view renders a category identically.
 public struct CategoryGlyph {
   public let symbol: String
   public let tint: Color
@@ -76,7 +76,7 @@ public func glyph(for category: String) -> CategoryGlyph {
   }
 }
 
-// Centralized motion policy (spec §8).
+// One motion policy so every view honors Reduce Motion the same way.
 public enum Motion {
   /// Returns a spring animation when reduce-motion is off, a short opacity fade when on.
   public static func anim(_ reduce: Bool) -> Animation? {
@@ -86,7 +86,7 @@ public enum Motion {
   }
 }
 
-// Typography helpers (spec §7).
+// Shared type styles so text scales and reads consistently across views.
 public extension Font {
   /// Large metric display — 40pt semibold rounded with monospaced digits.
   static var heroNumber: Font {
