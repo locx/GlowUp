@@ -25,14 +25,17 @@ public enum CLI {
       return (line, code)
     }
 
+    var timer = ScanTimer()
     let diagnostics = ScanDiagnostics()
     let scanned = CleanupScan.candidates(
       home: home, catalog: catalog, inventory: inventory,
       includeRisks: Risk.scanTiers(advanced: o.advanced), advanced: o.advanced,
       diagnostics: diagnostics)
     let unreadable = diagnostics.failedDirectories.map(\.path)
+    timer.mark("resolve")
 
     let sizes = await SizeMeasurer.measure(scanned.map(\.url))
+    timer.mark("measure")
     // Drop empty candidates — nothing to reclaim, just noise in the list.
     let candidates = scanned.filter { (sizes[$0.url] ?? 0) > 0 }
     let total = candidates.reduce(Int64(0)) { $0 + (sizes[$1.url] ?? 0) }
@@ -66,7 +69,8 @@ public enum CLI {
     if o.json {
       let (out, code) = jsonOutput(candidates, sizes, total, reports,
                                    movedBytes: cleanResult?.movedBytes, warning: historyWarning,
-                                   unreadable: unreadable)
+                                   unreadable: unreadable,
+                                   timings: o.perf ? timer.report : [])
       return (out, code != 0 ? code : exitCode)
     }
 
@@ -129,12 +133,14 @@ public enum CLI {
   private static func jsonOutput(_ candidates: [Candidate], _ sizes: [URL: Int64],
                                  _ total: Int64, _ reports: [Report],
                                  movedBytes: Int64? = nil, warning: String? = nil,
-                                 unreadable: [String] = []) -> (String, Int32) {
+                                 unreadable: [String] = [],
+                                 timings: [(label: String, ms: Int)] = []) -> (String, Int32) {
     struct Item: Encodable { let ruleID, category, risk, path: String; let app: String?; let bytes: Int64 }
     struct ReportItem: Encodable { let path: String; let bytes: Int64 }
     struct Out: Encodable {
       let totalBytes: Int64; let movedBytes: Int64?; let warning: String?
       let candidates: [Item]; let reports: [ReportItem]; let diagnostics: [String]?
+      let timings: [String: Int]?
     }
 
     let items = candidates.map {
@@ -148,7 +154,9 @@ public enum CLI {
     do {
       let data = try enc.encode(Out(totalBytes: total, movedBytes: movedBytes, warning: warning,
                                     candidates: items, reports: reportItems,
-                                    diagnostics: unreadable.isEmpty ? nil : unreadable))
+                                    diagnostics: unreadable.isEmpty ? nil : unreadable,
+                                    timings: timings.isEmpty ? nil : Dictionary(
+                                      timings.map { ($0.label, $0.ms) }, uniquingKeysWith: { a, _ in a })))
       return (String(decoding: data, as: UTF8.self) + "\n", 0)
     } catch {
       return ("JSON encoding failed: \(error)\n", 1)

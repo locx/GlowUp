@@ -10,14 +10,29 @@ public extension AppInventory {
   func knownSet() -> Set<String> { [] }
 }
 
-public struct SystemInventory: AppInventory {
-  public init() {}
+public final class SystemInventory: AppInventory, @unchecked Sendable {
+  // Caches the /Applications walk so a second scan in the same session doesn't redo it; the lock
+  // guards the cache because knownSet() is read from the scan's background task.
+  private let lock = NSLock()
+  private var cachedKnownSet: Set<String>?
+  // Injectable so a test can count how often the expensive walk runs; nil means scan the real apps.
+  private let knownSetProducer: (@Sendable () -> Set<String>)?
+
+  public init() { knownSetProducer = nil }
+  init(knownSetProducer: @escaping @Sendable () -> Set<String>) { self.knownSetProducer = knownSetProducer }
 
   public func isInstalled(bundleID: String) -> Bool {
     NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
   }
 
-  public func knownSet() -> Set<String> { installedKnownSet() }
+  public func knownSet() -> Set<String> {
+    lock.lock()
+    defer { lock.unlock() }
+    if let cached = cachedKnownSet { return cached }
+    let set = knownSetProducer?() ?? installedKnownSet()
+    cachedKnownSet = set
+    return set
+  }
 
   /// Token set broad enough to attribute Library entries to their owning app
   /// without requiring exact bundle-ID matches.

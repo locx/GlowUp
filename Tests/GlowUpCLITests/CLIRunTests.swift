@@ -234,6 +234,20 @@ final class CLIRunTests: XCTestCase {
     XCTAssertFalse(out.contains("\u{1B}["))
   }
 
+  // --perf adds per-phase timings to JSON so a measurement has real numbers; it must be opt-in.
+  func test_perfFlagEmitsTimingsInJSON() async throws {
+    let (out, code) = await run(["--json", "--perf"])
+    XCTAssertEqual(code, 0)
+    let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any])
+    let timings = try XCTUnwrap(obj["timings"] as? [String: Any], "--perf must emit timings")
+    XCTAssertNotNil(timings["resolve"])
+    XCTAssertNotNil(timings["measure"])
+
+    let (plain, _) = await run(["--json"])
+    let pobj = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(plain.utf8)) as? [String: Any])
+    XCTAssertNil(pobj["timings"], "timings must be opt-in via --perf")
+  }
+
   // A directory the scan can't read must surface, so an incomplete result isn't read as "clean".
   func test_unreadableDirSurfacesDiagnostics() async throws {
     try XCTSkipIf(getuid() == 0, "root bypasses directory permissions")
