@@ -61,12 +61,17 @@ public enum DenyList {
     return false
   }
 
-  // Bounded depth matching the data-store guard, probed fresh on every veto so a newly added
-  // credential isn't missed. Symlinked children are skipped: trashing the parent leaves its target.
+  // Depth-bounded (deeper costs a full walk for credentials that effectively never nest that far)
+  // and probed fresh each veto; symlinked children are skipped so trashing the parent leaves the target.
   private static func hasCredentialChild(_ dir: URL, depth: Int) -> Bool {
     guard depth <= 3 else { return false }
     let fm = FileManager.default
-    guard let children = try? fm.contentsOfDirectory(atPath: dir.path) else { return false }
+    let children: [String]
+    do {
+      children = try fm.contentsOfDirectory(atPath: dir.path)
+    } catch {
+      return PathUtil.isPermissionDenied(error)
+    }
     for child in children {
       if credentialChildSuffixes.contains(where: { child.hasSuffix($0) })
         || credentialPrefixes.contains(where: { child.hasPrefix($0) }) { return true }

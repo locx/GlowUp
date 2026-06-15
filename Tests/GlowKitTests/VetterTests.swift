@@ -88,6 +88,29 @@ final class VetterTests: XCTestCase {
     XCTAssertTrue(out.isEmpty, "a credential at the 4th level must drop its swept parent")
   }
 
+  func test_credentialBeyondProbeDepthDoesNotVetoSweptParent() throws {
+    // Documents the known limit: a credential past the depth-3 probe is not reached, so the
+    // parent survives. Pairs with the depth-3 boundary case above; changing the bound is a
+    // perf decision, not a safety upgrade.
+    let parent = "Library/Caches/depthgap"
+    try mkdir("\(parent)/a/b/c/d")
+    try Data().write(to: home.appending(path: "\(parent)/a/b/c/d/id_rsa"))
+    let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
+    XCTAssertEqual(out.count, 1, "a credential below the probe depth is not caught")
+  }
+
+  func test_unreadableSubdirVetoesSweptParent() throws {
+    // A subtree we can't read can't be proven clean, so the swept parent must be vetoed.
+    try XCTSkipIf(getuid() == 0, "root bypasses the permission denial this test relies on")
+    let parent = "Library/Caches/locked"
+    try mkdir("\(parent)/secret")
+    let secret = home.appending(path: "\(parent)/secret")
+    try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: secret.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: secret.path) }
+    let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
+    XCTAssertTrue(out.isEmpty, "an unreadable child subtree must drop its swept parent")
+  }
+
   func test_duplicateProtectedPathBothGetCachedVeto() {
     // Two candidates at the same protected path must both be vetoed; the per-scan memo must
     // not let a cached pass leak — neither survives.
