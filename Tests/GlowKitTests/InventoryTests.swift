@@ -1,4 +1,5 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 final class InventoryTests: XCTestCase {
@@ -28,10 +29,4 @@ private final class Counter: @unchecked Sendable {
   private var n = 0
   func bump() { lock.lock(); n += 1; lock.unlock() }
   var value: Int { lock.lock(); defer { lock.unlock() }; return n }
-}
-
-// Test double used here and by ScannerTests.
-struct FakeInventory: AppInventory {
-  let installed: Set<String>
-  func isInstalled(bundleID: String) -> Bool { installed.contains(bundleID) }
 }

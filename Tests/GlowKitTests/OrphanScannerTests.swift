@@ -1,32 +1,32 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 final class OrphanScannerTests: XCTestCase {
   private var home: URL!
 
   override func setUpWithError() throws {
-    home = URL(fileURLWithPath: NSTemporaryDirectory())
-      .appending(path: "glow-orphan-\(UUID().uuidString)")
+    home = TempDir.make("glow-orphan")
 
     // Known app — kept via known-set match.
-    try mkdir("Library/Application Support/KnownApp")
+    try home.makeDir("Library/Application Support/KnownApp")
     // Orphan — no owning app.
-    try mkdir("Library/Application Support/OldLeftover")
+    try home.makeDir("Library/Application Support/OldLeftover")
     // KEEP prefix — always kept.
-    try mkdir("Library/Caches/com.apple.Something")
+    try home.makeDir("Library/Caches/com.apple.Something")
     // Dotfile — always skipped.
-    try mkdir("Library/Application Support/.hidden-thing")
+    try home.makeDir("Library/Application Support/.hidden-thing")
     // Symlink in App Support — must be skipped.
     // Real target lives outside Library so it is not itself scanned.
     let realTarget = home.appending(path: "_symlink_real_target")
-    try mkdir("_symlink_real_target")
+    try home.makeDir("_symlink_real_target")
     try FileManager.default.createSymbolicLink(
       at: home.appending(path: "Library/Application Support/SymLinkedDir"),
       withDestinationURL: realTarget)
 
     // Container with a matching LaunchAgent plist — should be demoted.
-    try mkdir("Library/Containers/com.acme.helper")
-    try mkdir("Library/LaunchAgents")
+    try home.makeDir("Library/Containers/com.acme.helper")
+    try home.makeDir("Library/LaunchAgents")
     let plistURL = home.appending(path: "Library/LaunchAgents/com.acme.helper.plist")
     let plistData: NSDictionary = ["Label": "com.acme.helper"]
     plistData.write(to: plistURL, atomically: true)
@@ -34,12 +34,6 @@ final class OrphanScannerTests: XCTestCase {
 
   override func tearDownWithError() throws {
     try? FileManager.default.removeItem(at: home)
-  }
-
-  // Convenience.
-  private func mkdir(_ rel: String) throws {
-    try FileManager.default.createDirectory(
-      at: home.appending(path: rel), withIntermediateDirectories: true)
   }
 
   /// Only the entry with no known match must be flagged.
@@ -95,15 +89,15 @@ final class OrphanScannerTests: XCTestCase {
 
   /// Caches/Logs are owned by GenericCacheScanner; orphans there must not be double-emitted.
   func test_doesNotScanCacheOrLogRoots() throws {
-    try mkdir("Library/Caches/leftover.app")
-    try mkdir("Library/Logs/leftover.app")
+    try home.makeDir("Library/Caches/leftover.app")
+    try home.makeDir("Library/Logs/leftover.app")
     let names = OrphanScanner.scan(home: home, known: ["knownapp"]).map(\.url.path)
     XCTAssertFalse(names.contains { $0.contains("Library/Caches/") || $0.contains("Library/Logs/") })
   }
 
   /// A known token >= 6 chars must cause a substring match (e.g. "google" keeps "Google").
   func test_knownTokenSubstringKeepsEntry() throws {
-    try mkdir("Library/Application Support/Google")
+    try home.makeDir("Library/Application Support/Google")
     let found = OrphanScanner.scan(home: home, known: ["knownapp", "google"])
     let names = found.map(\.url.lastPathComponent)
     XCTAssertFalse(names.contains("Google"),

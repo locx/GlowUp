@@ -1,6 +1,6 @@
 import Foundation
 
-// Report-only item: surfaced for the user to act on themselves, never trashed by the app.
+// Large-file finding (user data): trashed only on the user's explicit, recoverable request — never auto-cleaned.
 public struct Report: Sendable, Identifiable, Equatable {
   public let url: URL
   public let bytes: Int64

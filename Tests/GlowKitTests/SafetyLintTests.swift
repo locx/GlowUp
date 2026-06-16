@@ -1,4 +1,5 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 // Proves no shipped rule can resolve onto protected data, and that the
@@ -7,13 +8,9 @@ final class SafetyLintTests: XCTestCase {
   private var home: URL!
 
   override func setUpWithError() throws {
-    home = URL(fileURLWithPath: NSTemporaryDirectory())
-      .appending(path: "glowlint-\(UUID().uuidString)")
+    home = TempDir.make("glowlint")
     for bait in ["Documents/keep.txt", "Desktop/keep", ".ssh/id_rsa"] {
-      let u = home.appending(path: bait)
-      try FileManager.default.createDirectory(
-        at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
-      try Data().write(to: u)
+      try home.writeFile(bait, bytes: Data())
     }
   }
   override func tearDownWithError() throws {
@@ -41,15 +38,11 @@ final class SafetyLintTests: XCTestCase {
   // The sweepers infer candidates by shape, so the gate — not each scanner — must reject
   // credential dirs, live data stores, and symlinks planted inside the sweep roots.
   func test_sweepersNeverSurviveTheGateOntoDangerousData() throws {
-    let fm = FileManager.default
-    func mk(_ rel: String) throws {
-      try fm.createDirectory(at: home.appending(path: rel), withIntermediateDirectories: true)
-    }
-    try mk("Library/Caches/plaincache")
-    try mk("Library/Caches/hascreds")
+    try home.makeDir("Library/Caches/plaincache")
+    try home.makeDir("Library/Caches/hascreds")
     try Data().write(to: home.appending(path: "Library/Caches/hascreds/key.pem"))
-    try mk("Library/Caches/hasstore/IndexedDB")
-    try mk("Library/Application Support/Leftover/Local Storage")
+    try home.makeDir("Library/Caches/hasstore/IndexedDB")
+    try home.makeDir("Library/Application Support/Leftover/Local Storage")
 
     var swept = GenericCacheScanner.scan(home: home)
     swept += OrphanScanner.scan(home: home, known: [])
@@ -70,13 +63,9 @@ final class SafetyLintTests: XCTestCase {
   // Guards against the gate over-reaching: a genuine, credential-free, store-free cache must
   // still pass. Without this, an overly broad deny-list could silently zero out every candidate.
   func test_genuineCachePathSurvivesTheGate() throws {
-    let fm = FileManager.default
-    func mk(_ rel: String) throws {
-      try fm.createDirectory(at: home.appending(path: rel), withIntermediateDirectories: true)
-    }
-    try mk("Library/Caches/com.example.app")
+    try home.makeDir("Library/Caches/com.example.app")
     try Data().write(to: home.appending(path: "Library/Caches/com.example.app/cache.bin"))
-    try mk("Library/Containers/com.example.app/Data/Library/Caches/blob")
+    try home.makeDir("Library/Containers/com.example.app/Data/Library/Caches/blob")
 
     func cand(_ rel: String) -> Candidate {
       Candidate(ruleID: "t", app: nil, category: "appCaches", risk: .safe,

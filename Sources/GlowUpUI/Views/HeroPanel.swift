@@ -2,11 +2,17 @@ import SwiftUI
 import GlowKit
 
 // The Recommended landing: hero ring, legend, and the primary action row.
+// Fixed-width, top-anchored column so phase changes never re-center or re-width the layout.
 struct HeroPanel: View {
   @ObservedObject var model: AppModel
   @Binding var confirming: Bool
   @Binding var needsRescan: Bool
   var onReview: () -> Void
+  @State private var showDiagnostics = false
+
+  // One width and one rhythm constant; every gap is sectionGap or a tighter half.
+  private let contentWidth: CGFloat = 480
+  private let sectionGap: CGFloat = 28
 
   // Bytes shown in the ring: lastFreed on done, selectedBytes otherwise.
   private var ringBytes: Int64 {
@@ -17,66 +23,80 @@ struct HeroPanel: View {
   private var slices: [CategorySlice] { CandidateGrouping.forDisplay(model.categoryBytes) }
 
   var body: some View {
+    GeometryReader { proxy in
+    // Bind once: forDisplay does three passes and the body reads it for the ring, the gate, and the bar.
+    let slices = self.slices
     ScrollView {
-      HStack {
-        Spacer(minLength: 0)
-        VStack(spacing: 20) {
-          if model.catalogLoadFailed {
-            Text("Couldn't load the cleanup catalog — results may be incomplete.")
-              .font(.callout).foregroundStyle(Color.warning)
-              .frame(maxWidth: .infinity, alignment: .leading)
-          }
-          // Some directories couldn't be read, so an incomplete result isn't mistaken for "clean".
-          if model.phase == .results, !model.scanDiagnostics.isEmpty {
-            Text("Some directories couldn't be read — results may be incomplete.")
-              .font(.callout).foregroundStyle(Color.warning)
-              .frame(maxWidth: .infinity, alignment: .leading)
-          }
-          RingView(categoryBytes: slices, totalBytes: ringBytes, phase: model.phase)
-          heroLabel
+      VStack(spacing: sectionGap) {
+        banners
 
-          // An empty scan with no disk access means "limited", not "already clean".
-          if model.phase == .results, model.candidates.isEmpty, model.limitedAccess {
-            OnboardingView()
-          }
-          // Legend: what each ring colour is and its share of the reclaimable total.
-          if model.phase == .results || model.phase == .cleaning, !slices.isEmpty {
-            CategoryBar(items: slices).frame(maxWidth: 360)
-          }
+        RingView(categoryBytes: slices, totalBytes: ringBytes, phase: model.phase,
+                 limited: model.limitedAccess)
 
-          actionRow
+        // Always reserve the sub-line's slot so the scanning message appears without shifting the layout.
+        subLabel.frame(height: 24)
 
-          if model.phase != .done && !model.candidates.isEmpty {
-            Button("Review what will be cleaned ›", action: onReview)
-              .buttonStyle(.plain).font(.callout).foregroundStyle(Color.brand)
-          }
-          if model.phase == .done { doneExtras }
-          trustPills
+        // An empty scan with no disk access means "limited", not "already clean".
+        if model.phase == .results, model.candidates.isEmpty, model.limitedAccess {
+          OnboardingView()
         }
-        .frame(maxWidth: 520)
-        Spacer(minLength: 0)
+        // Legend stays visible through scanning (data persists from the last scan) so a rescan
+        // doesn't remove it and shove the buttons around.
+        if model.phase != .idle, !slices.isEmpty {
+          CategoryBar(items: slices)
+        }
+
+        // Primary action block: the clean/scan pills with the Advanced toggle beneath them.
+        VStack(spacing: sectionGap / 2) {
+          actionRow
+          Toggle("Advanced", isOn: $model.advanced)
+            .toggleStyle(.glowCheckbox)
+            .disabled(model.isBusy)
+            .help("Include orphan scanners, project artifacts, and all risk tiers")
+        }
+
+        secondaryActions
+        trustPills
       }
-      .pagePadding()
+      .frame(width: contentWidth)
+      .padding(.vertical, 32)
+      // Fill at least the viewport so the column centers vertically instead of pinning to the top.
+      .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+    }
     }
   }
 
-  @ViewBuilder private var heroLabel: some View {
+  // Grouped so any present banner sits at the top of the column; each only renders when it applies.
+  @ViewBuilder private var banners: some View {
+    if model.catalogLoadFailed {
+      StatusMessage("Couldn't load the cleanup catalog — results may be incomplete.")
+    }
+    // Some directories couldn't be read, so an incomplete result isn't mistaken for "clean".
+    if model.phase == .results, !model.scanDiagnostics.isEmpty {
+      Button { showDiagnostics = true } label: {
+        StatusMessage("Some directories couldn't be read — results may be incomplete.")
+      }
+      .buttonStyle(.plain)
+      .help("Click to see which directories couldn't be read")
+      .popover(isPresented: $showDiagnostics, arrowEdge: .bottom) { diagnosticsPopover }
+    }
+  }
+
+  // Sub-line under the ring; the reclaim amount itself lives in the ring center, never repeated here.
+  @ViewBuilder private var subLabel: some View {
     switch model.phase {
     case .scanning:
       HStack(spacing: 8) {
         ProgressView().controlSize(.small)
         Text("Looking through caches and logs…")
-          .font(.title3).foregroundStyle(Color.textSecondary)
+          .font(.callout).foregroundStyle(Color.textSecondary).lineLimit(1)
       }
-    case .results, .cleaning:
-      Text(model.selectedBytes > 0 ? ReclaimLabel.hero(bytes: model.selectedBytes)
-                                    : "Your Mac is already sparkling")
-        .font(.title3).foregroundStyle(Color.textPrimary)
     case .done:
-      Text("· \(ReclaimLabel.reclaimHint)")
+      Text(ReclaimLabel.reclaimHint)
         .font(.caption).foregroundStyle(Color.textSecondary)
-    case .idle:
-      EmptyView()
+    case .results, .cleaning, .idle:
+      // Clear placeholder (not EmptyView) so the reserved slot keeps its height when there's no text.
+      Color.clear
     }
   }
 
@@ -85,18 +105,16 @@ struct HeroPanel: View {
       if model.phase == .done {
         Button("Put it all back") { Task { _ = await model.restoreLast() } }
           .buttonStyle(.glowSecondary)
-          .disabled(!model.canRestoreLast)
+          .disabled(model.isBusy || !model.canRestoreLast)
           .keyboardShortcut("z", modifiers: .command)
       } else {
         Button("Clean My Mac") { confirming = true }
-          .buttonStyle(.glowPrimary)
-          .disabled(model.selectedBytes == 0 || model.phase == .scanning)
+          // Primary only when there's a selection to clean; otherwise a disabled secondary.
+          .buttonStyle(model.canClean ? GlowButtonStyle.glowPrimary : .glowSecondary)
+          .disabled(!model.canClean || model.isBusy)
           .keyboardShortcut(.return, modifiers: .command)
       }
       scanButton
-      Toggle("Advanced", isOn: $model.advanced)
-        .toggleStyle(.checkbox)
-        .help("Include orphan scanners, project artifacts, and all risk tiers")
     }
   }
 
@@ -105,26 +123,36 @@ struct HeroPanel: View {
       needsRescan = false
       Task { await model.scan(includeRisks: Risk.scanTiers(advanced: model.advanced)) }
     }
-    .disabled(model.phase == .scanning || model.phase == .cleaning)
+    .disabled(model.isBusy)
     // Stands out after an Advanced toggle so the user knows to rescan.
     if needsRescan { scan.buttonStyle(.glowPrimary) } else { scan.buttonStyle(.glowSecondary) }
   }
 
+  // Reclaim follow-up beneath the action block: Empty Trash after a clean, the review link before it.
+  @ViewBuilder private var secondaryActions: some View {
+    if model.phase == .done {
+      doneExtras
+    } else if !model.candidates.isEmpty {
+      Button("Review what will be cleaned ›", action: onReview)
+        .buttonStyle(.plain).font(.callout).foregroundStyle(Color.brand)
+    }
+  }
+
   @ViewBuilder private var doneExtras: some View {
-    VStack(spacing: 8) {
+    VStack(spacing: sectionGap / 2) {
       // After a clean, emptying the Trash is the reclaim CTA — promote it.
       Button("Empty Trash") { model.emptyTrash() }
-        .buttonStyle(.glowPrimary)
-        .disabled(model.trashCount == 0)
+        // Primary only when there's something to empty; otherwise a disabled secondary (no valid action).
+        .buttonStyle(model.canEmptyTrash ? GlowButtonStyle.glowPrimary : .glowSecondary)
+        .disabled(!model.canEmptyTrash || model.isBusy)
       if let r = model.lastRestore {
         RestoreFeedback(result: r, font: .caption)
       }
       if model.lastCleanFailures > 0 {
-        Text("\(model.lastCleanFailures) item\(model.lastCleanFailures == 1 ? "" : "s") couldn't be moved to Trash.")
-          .font(.caption).foregroundStyle(Color.warning)
+        StatusMessage("\(model.lastCleanFailures) item\(model.lastCleanFailures == 1 ? "" : "s") couldn't be moved to Trash.")
       }
       if let warning = model.lastCleanWarning {
-        Text(warning).font(.caption).foregroundStyle(Color.warning)
+        StatusMessage(warning)
       }
     }
   }
@@ -142,5 +170,29 @@ struct HeroPanel: View {
     }
     .fixedSize(horizontal: false, vertical: true)
     .multilineTextAlignment(.center)
+  }
+
+  // Lists the unreadable directories so the user can see exactly what the scan skipped.
+  @ViewBuilder private var diagnosticsPopover: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Directories that couldn't be read").font(.headline)
+      Text("Grant Full Disk Access to include these in the scan.")
+        .font(.caption).foregroundStyle(Color.textSecondary)
+      Divider()
+      ScrollView {
+        VStack(alignment: .leading, spacing: 4) {
+          ForEach(model.scanDiagnostics, id: \.self) { url in
+            Text(url.path)
+              .font(.caption.monospaced())
+              .textSelection(.enabled)
+              .lineLimit(1).truncationMode(.middle)
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .frame(maxHeight: 220)
+    }
+    .padding(16)
+    .frame(width: 420)
   }
 }

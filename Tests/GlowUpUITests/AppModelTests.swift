@@ -1,5 +1,6 @@
 import XCTest
 import GlowKit
+import GlowTestSupport
 @testable import GlowUpUI
 
 @MainActor
@@ -9,45 +10,24 @@ final class AppModelTests: XCTestCase {
   private var bin: URL!
 
   override func setUpWithError() throws {
-    let root = URL(fileURLWithPath: NSTemporaryDirectory())
-      .appending(path: "glow-app-\(UUID().uuidString)")
+    let root = TempDir.make("glow-app")
     home = root.appending(path: "home")
     store = root.appending(path: "history.json")
-    bin = root.appending(path: "bin")
-    let fm = FileManager.default
-    try fm.createDirectory(at: bin, withIntermediateDirectories: true)
+    bin = try root.makeDir("bin")
     // Materialize one safe cache (vscode) and one stateful path.
-    try fm.createDirectory(
-      at: home.appending(path: "Library/Application Support/Code/CachedData"),
-      withIntermediateDirectories: true)
-    try Data(repeating: 0xAB, count: 8192).write(
-      to: home.appending(path: "Library/Application Support/Code/CachedData/blob"))
-    try fm.createDirectory(
-      at: home.appending(path: "Library/Application Support/Code/WebStorage"),
-      withIntermediateDirectories: true)
-    try Data(repeating: 0xCD, count: 4096).write(
-      to: home.appending(path: "Library/Application Support/Code/WebStorage/blob"))
+    try home.writeFile("Library/Application Support/Code/CachedData/blob",
+                       bytes: Data(repeating: 0xAB, count: 8192))
+    try home.writeFile("Library/Application Support/Code/WebStorage/blob",
+                       bytes: Data(repeating: 0xCD, count: 4096))
   }
 
   override func tearDownWithError() throws {
     try? FileManager.default.removeItem(at: home.deletingLastPathComponent())
   }
 
-  // Spies for the two non-reversible permanent ops. Fired flags let a test prove the default
-  // (non-advanced) clean path never reaches the root rm / simctl operations.
-  private final class SpyRoot: RootCommandRunner, @unchecked Sendable {
-    var fired = false
-    func runAsRoot(_ command: String) -> Bool { fired = true; return true }
-  }
-  private final class SpyShell: ShellRunner, @unchecked Sendable {
-    var fired = false
-    func run(_ launchPath: String, _ args: [String]) -> Bool { fired = true; return true }
-  }
-
   private func model() throws -> AppModel {
-    // Catalog JSON: vscode rule with a safe CachedData path and a stateful WebStorage path.
-    // Rule and Catalog are Codable-only (no memberwise init), so we construct via JSON.
-    let catalogJSON = Data("""
+    // vscode rule with a safe CachedData path and a stateful WebStorage path.
+    let cat = try Catalog.decode("""
     {
       "schemaVersion": 1,
       "rules": [{
@@ -66,10 +46,9 @@ final class AppModelTests: XCTestCase {
       "projectRoots": [],
       "projectArtifacts": []
     }
-    """.utf8)
-    let cat = try JSONDecoder().decode(Catalog.self, from: catalogJSON)
+    """)
     return AppModel(catalog: cat,
-                    inventory: FakeInv(),
+                    inventory: InstalledInventory(),
                     home: home,
                     mover: BinMover(bin: bin),
                     storeURL: store,
@@ -116,23 +95,17 @@ final class AppModelTests: XCTestCase {
   }
 
   func test_advancedScanIncludesProjectArtifacts() async throws {
-    let fm = FileManager.default
     // Create a node_modules directory under a project root.
-    let projects = home.appending(path: "projects")
-    try fm.createDirectory(at: projects.appending(path: "app/node_modules"),
-                           withIntermediateDirectories: true)
-    try Data(repeating: 0xEF, count: 2048).write(
-      to: projects.appending(path: "app/node_modules/pkg"))
-    let catalogJSON = Data("""
+    try home.writeFile("projects/app/node_modules/pkg", bytes: Data(repeating: 0xEF, count: 2048))
+    let cat = try Catalog.decode("""
     {
       "schemaVersion": 1,
       "rules": [],
       "projectRoots": ["~/projects"],
       "projectArtifacts": ["node_modules"]
     }
-    """.utf8)
-    let cat = try JSONDecoder().decode(Catalog.self, from: catalogJSON)
-    let m = AppModel(catalog: cat, inventory: FakeInv(), home: home,
+    """)
+    let m = AppModel(catalog: cat, inventory: InstalledInventory(), home: home,
                      mover: BinMover(bin: bin), storeURL: store)
 
     // Advanced mode: node_modules must appear as a rebuildable candidate.
@@ -218,13 +191,11 @@ final class AppModelTests: XCTestCase {
   func test_cleanSelectedInAdvancedSparesStatefulAndPrivacyButTrashesRebuildable() async throws {
     // Advanced mode widens cleanTiers to [.safe, .rebuildable]; stateful/privacy must still be spared
     // by the tier guard specifically (not merely excluded by basic mode's [.safe] filter).
-    let fm = FileManager.default
-    let appSupport = home.appending(path: "Library/Application Support/Code")
+    let appSupport = "Library/Application Support/Code"
     for name in ["Build", "WebStorage", "Cookies"] {
-      try fm.createDirectory(at: appSupport.appending(path: name), withIntermediateDirectories: true)
-      try Data(repeating: 0xAB, count: 4096).write(to: appSupport.appending(path: "\(name)/blob"))
+      try home.writeFile("\(appSupport)/\(name)/blob", bytes: Data(repeating: 0xAB, count: 4096))
     }
-    let catalogJSON = Data("""
+    let cat = try Catalog.decode("""
     {
       "schemaVersion": 1,
       "rules": [{
@@ -244,9 +215,8 @@ final class AppModelTests: XCTestCase {
       "projectRoots": [],
       "projectArtifacts": []
     }
-    """.utf8)
-    let cat = try JSONDecoder().decode(Catalog.self, from: catalogJSON)
-    let m = AppModel(catalog: cat, inventory: FakeInv(), home: home,
+    """)
+    let m = AppModel(catalog: cat, inventory: InstalledInventory(), home: home,
                      mover: BinMover(bin: bin), storeURL: store)
 
     m.advanced = true
@@ -260,12 +230,12 @@ final class AppModelTests: XCTestCase {
     await m.cleanSelected()
 
     // Rebuildable IS trashed under Advanced.
-    XCTAssertFalse(fm.fileExists(atPath: rebuildable.url.path),
+    XCTAssertFalse(FileManager.default.fileExists(atPath: rebuildable.url.path),
                    "rebuildable candidate should be trashed in advanced mode")
     // Stateful and privacy remain on disk despite being selected.
-    XCTAssertTrue(fm.fileExists(atPath: stateful.url.path),
+    XCTAssertTrue(FileManager.default.fileExists(atPath: stateful.url.path),
                   "stateful candidate must never be trashed, even under Advanced")
-    XCTAssertTrue(fm.fileExists(atPath: privacy.url.path),
+    XCTAssertTrue(FileManager.default.fileExists(atPath: privacy.url.path),
                   "privacy candidate must never be trashed, even under Advanced")
     // Neither stateful nor privacy may appear in any recorded batch.
     let recorded = RestoreStore(storeURL: store).batches()
@@ -278,7 +248,7 @@ final class AppModelTests: XCTestCase {
 
   func test_lastFreedCountsSamePathOnce() async throws {
     // Two rules that both resolve to the same URL — dedupe should keep one; freed == that size.
-    let catalogJSON = Data("""
+    let cat = try Catalog.decode("""
     {
       "schemaVersion": 1,
       "rules": [
@@ -306,9 +276,8 @@ final class AppModelTests: XCTestCase {
       "projectRoots": [],
       "projectArtifacts": []
     }
-    """.utf8)
-    let cat = try JSONDecoder().decode(Catalog.self, from: catalogJSON)
-    let m = AppModel(catalog: cat, inventory: FakeInv(), home: home,
+    """)
+    let m = AppModel(catalog: cat, inventory: InstalledInventory(), home: home,
                      mover: BinMover(bin: bin), storeURL: store)
     await m.scan(includeRisks: Risk.scanTiers(advanced: false))
     // Dedupe keeps exactly one candidate for the shared path.
@@ -334,7 +303,7 @@ final class AppModelTests: XCTestCase {
 
   func test_historyAndRestoreByBatch() async throws {
     // Target the blob file (not a directory) so fileSizeKey returns real bytes.
-    let catalogJSON = Data("""
+    let cat = try Catalog.decode("""
     {
       "schemaVersion": 1,
       "rules": [{
@@ -350,9 +319,8 @@ final class AppModelTests: XCTestCase {
       "projectRoots": [],
       "projectArtifacts": []
     }
-    """.utf8)
-    let cat = try JSONDecoder().decode(Catalog.self, from: catalogJSON)
-    let m = AppModel(catalog: cat, inventory: FakeInv(), home: home,
+    """)
+    let m = AppModel(catalog: cat, inventory: InstalledInventory(), home: home,
                      mover: BinMover(bin: bin), storeURL: store)
     await m.scan(includeRisks: Risk.scanTiers(advanced: false))
     await m.cleanSelected()
@@ -370,13 +338,9 @@ final class AppModelTests: XCTestCase {
   func test_cleanReportsTrashFailures() async throws {
     // Two safe caches: the mover throws on Cache2 and succeeds on CachedData — exercises failure recording
     // through the actually-cleanable path (the tier filter spares stateful items entirely).
-    let fm = FileManager.default
-    try fm.createDirectory(
-      at: home.appending(path: "Library/Application Support/Code/Cache2"),
-      withIntermediateDirectories: true)
-    try Data(repeating: 0xEF, count: 4096).write(
-      to: home.appending(path: "Library/Application Support/Code/Cache2/blob"))
-    let catalogJSON = Data("""
+    try home.writeFile("Library/Application Support/Code/Cache2/blob",
+                       bytes: Data(repeating: 0xEF, count: 4096))
+    let cat = try Catalog.decode("""
     {
       "schemaVersion": 1,
       "rules": [{
@@ -395,10 +359,9 @@ final class AppModelTests: XCTestCase {
       "projectRoots": [],
       "projectArtifacts": []
     }
-    """.utf8)
-    let cat = try JSONDecoder().decode(Catalog.self, from: catalogJSON)
+    """)
     let m = AppModel(catalog: cat,
-                     inventory: FakeInv(),
+                     inventory: InstalledInventory(),
                      home: home,
                      mover: PartialMover(bin: bin),
                      storeURL: store)
@@ -443,6 +406,60 @@ final class AppModelTests: XCTestCase {
     XCTAssertFalse(shell.fired, "quickClean must never invoke simctl")
   }
 
+  func test_reportFoldersAddDedupeRemoveAndPersist() async throws {
+    let suiteName = "glow-test-\(UUID().uuidString)"
+    let d = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    defer { d.removePersistentDomain(forName: suiteName) }
+    let extra = try home.makeDir("Extra")
+    let cat = try Catalog.decode("""
+    { "schemaVersion": 1, "rules": [], "projectRoots": [], "projectArtifacts": [] }
+    """)
+    func makeModel() -> AppModel {
+      AppModel(catalog: cat, inventory: InstalledInventory(), home: home,
+               mover: BinMover(bin: bin), storeURL: store, defaults: d)
+    }
+
+    let m = makeModel()
+    m.addReportFolder(extra)
+    m.addReportFolder(extra) // duplicate must be ignored
+    XCTAssertEqual(m.reportFolders.map(\.lastPathComponent), ["Extra"])
+
+    // A fresh model on the same suite reloads the persisted folder.
+    let reloaded = makeModel()
+    XCTAssertEqual(reloaded.reportFolders.map(\.lastPathComponent), ["Extra"])
+
+    reloaded.removeReportFolder(reloaded.reportFolders[0])
+    XCTAssertTrue(reloaded.reportFolders.isEmpty)
+    XCTAssertTrue(makeModel().reportFolders.isEmpty, "removal must persist")
+  }
+
+  func test_trashReportsMovesSelectedFilesRecoverably() async throws {
+    // Sparse 120 MB file: logical size clears the 100 MB report threshold without real disk use.
+    let big = try home.makeDir("Big")
+    let huge = big.appending(path: "huge.bin")
+    XCTAssertTrue(FileManager.default.createFile(atPath: huge.path, contents: nil))
+    let fh = try FileHandle(forWritingTo: huge)
+    try fh.truncate(atOffset: 120_000_000)
+    try fh.close()
+
+    let suiteName = "glow-test-\(UUID().uuidString)"
+    let d = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    defer { d.removePersistentDomain(forName: suiteName) }
+    let cat = try Catalog.decode("""
+    { "schemaVersion": 1, "rules": [], "projectRoots": [], "projectArtifacts": [] }
+    """)
+    let m = AppModel(catalog: cat, inventory: InstalledInventory(), home: home,
+                     mover: BinMover(bin: bin), storeURL: store, defaults: d)
+    m.addReportFolder(big)
+    await m.refreshReports()
+    let report = try XCTUnwrap(m.reports.first { $0.url.lastPathComponent == "huge.bin" })
+
+    await m.trashReports([report.id])
+    XCTAssertFalse(FileManager.default.fileExists(atPath: huge.path), "selected file moved to the Trash")
+    XCTAssertFalse(m.reports.contains { $0.id == report.id }, "trashed file drops out of the report list")
+    XCTAssertEqual(RestoreStore(storeURL: store).batches().count, 1, "recorded so it can be put back")
+  }
+
   // Proves the injected seam is live: only the distinct Advanced-gated methods reach the runners.
   func test_permanentOpsRouteThroughInjectedRunners() async throws {
     let root = SpyRoot(); let shell = SpyShell()
@@ -451,30 +468,5 @@ final class AppModelTests: XCTestCase {
     _ = await m.removeUnavailableSimulators()
     XCTAssertTrue(shell.fired, "removeUnavailableSimulators must use the injected shell runner")
     XCTAssertFalse(root.fired, "simulator removal must not touch the root runner")
-  }
-}
-
-struct FakeInv: AppInventory {
-  func isInstalled(bundleID: String) -> Bool { true }
-  // Installed apps contribute name tokens, so their Library dirs aren't flagged as orphans.
-  func knownSet() -> Set<String> { ["code"] }
-}
-struct BinMover: ItemMover {
-  let bin: URL
-  func trash(_ url: URL) throws -> URL {
-    let dest = bin.appending(path: "\(UUID().uuidString)-\(url.lastPathComponent)")
-    try FileManager.default.moveItem(at: url, to: dest)
-    return dest
-  }
-}
-// Succeeds for all paths except those whose last component is "Cache2".
-struct PartialMover: ItemMover {
-  let bin: URL
-  struct FakeError: Error {}
-  func trash(_ url: URL) throws -> URL {
-    if url.lastPathComponent == "Cache2" { throw FakeError() }
-    let dest = bin.appending(path: "\(UUID().uuidString)-\(url.lastPathComponent)")
-    try FileManager.default.moveItem(at: url, to: dest)
-    return dest
   }
 }

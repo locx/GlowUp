@@ -18,6 +18,5 @@ struct AboutPanel: View {
       }
       .pagePadding()
     }
-    .navigationTitle("About")
   }
 }

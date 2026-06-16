@@ -16,9 +16,11 @@ let package = Package(
       resources: [.copy("Resources/catalog.json")],
       linkerSettings: [.linkedFramework("AppKit")]
     ),
+    // Shared test fixtures/doubles. Not a product, so it never ships; uses only public GlowKit API.
+    .target(name: "GlowTestSupport", dependencies: ["GlowKit"], path: "Tests/GlowTestSupport"),
     .testTarget(
       name: "GlowKitTests",
-      dependencies: ["GlowKit"]
+      dependencies: ["GlowKit", "GlowTestSupport"]
     ),
     .target(
       name: "GlowUpUI",
@@ -30,10 +32,10 @@ let package = Package(
     ),
     .testTarget(
       name: "GlowUpUITests",
-      dependencies: ["GlowUpUI"]
+      dependencies: ["GlowUpUI", "GlowTestSupport"]
     ),
     .target(name: "GlowUpCLI", dependencies: ["GlowKit"]),
     .executableTarget(name: "GlowUpExec", dependencies: ["GlowUpCLI"], path: "Sources/GlowUpCLIExec"),
-    .testTarget(name: "GlowUpCLITests", dependencies: ["GlowUpCLI"]),
+    .testTarget(name: "GlowUpCLITests", dependencies: ["GlowUpCLI", "GlowTestSupport"]),
   ]
 )

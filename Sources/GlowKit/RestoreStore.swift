@@ -81,6 +81,23 @@ public struct RestoreStore {
     } catch { return false }
   }
 
+  // Forget several records in one coordinated write; the trashed files themselves are left in place.
+  @discardableResult
+  public func remove(ids: Set<String>) -> Bool {
+    do {
+      return try mutate { all in
+        let next = all.filter { !ids.contains($0.id) }
+        return next.count < all.count ? next : nil
+      }
+    } catch { return false }
+  }
+
+  // Any recorded item still sitting in the Trash, so a restore can recover at least part of the batch.
+  public static func isRestorable(_ batch: CleanupBatch) -> Bool {
+    let fm = FileManager.default
+    return batch.items.contains { fm.fileExists(atPath: $0.trashedPath) }
+  }
+
   /// Moves a batch's items back and prunes the store to what is still in the Trash:
   /// the batch is removed on full success, or rewritten with only the failed items.
   /// If every item fails, the batch is deliberately retained whole — those items are still

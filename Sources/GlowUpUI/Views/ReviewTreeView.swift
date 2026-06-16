@@ -18,27 +18,28 @@ struct ReviewTreeView: View {
       // Action area directly under the header (kept out of the window toolbar).
       HStack(spacing: 12) {
         Toggle("Advanced", isOn: $model.advanced)
-          .toggleStyle(.switch)
-          .disabled(model.phase == .scanning)
+          .toggleStyle(.glowCheckbox)
+          .disabled(model.isBusy)
           .help("Include orphan scanners, project artifacts, and all risk tiers")
         Spacer()
-        // Resets to the pre-checked default tiers; ⌘A is the keyboard equivalent.
+        // Resets the selection to the pre-checked default tiers.
         Button("Select Defaults") { model.selected = model.defaultSelection }
-        .buttonStyle(.glowSecondary)
-        .disabled(model.candidates.isEmpty || model.selected == model.defaultSelection)
-        .keyboardShortcut("a", modifiers: .command)
+        // Primary only when the selection has drifted from the defaults; otherwise a disabled secondary.
+        .buttonStyle(model.canResetSelection ? GlowButtonStyle.glowPrimary : .glowSecondary)
+        .disabled(!model.canResetSelection || model.isBusy)
         Button("Rescan") {
           Task { await model.scan(includeRisks: Risk.scanTiers(advanced: model.advanced)) }
         }
         .buttonStyle(.glowPrimary)
-        .disabled(model.phase == .scanning || model.phase == .cleaning)
+        .disabled(model.isBusy)
       }
       .padding(.horizontal, 20)
       .padding(.vertical, 10)
       Divider()
 
       // Permanent group: these bypass the Trash and CAN'T be undone, so they're boxed off in red.
-      if model.advanced { permanentSection }
+      // Hidden entirely when there's nothing permanent to remove — no empty red box.
+      if model.advanced, !permanentIDs.isEmpty { permanentSection }
 
       // Hint banner when advanced is off — full-width, top-aligned icon+text.
       if !model.advanced {
@@ -73,7 +74,7 @@ struct ReviewTreeView: View {
             } header: {
               HStack(spacing: 8) {
                 // Leading checkbox selects/deselects the whole group, matching the row toggles.
-                Toggle("", isOn: groupBinding(group)).labelsHidden()
+                Toggle("", isOn: groupBinding(group)).toggleStyle(.glowCheckboxBare)
                 let g = glyph(for: group.category)
                 Image(systemName: g.symbol).foregroundStyle(g.tint)
                 Text(group.key)
@@ -103,8 +104,14 @@ struct ReviewTreeView: View {
         .background(.bar)
       }
     }
-    .navigationTitle("Review")
-    .task(id: model.advanced) { if model.advanced { await model.refreshSystemCaches() } }
+    .task(id: model.advanced) {
+      if model.advanced {
+        // Independent probes (filesystem walk + simctl spawn); run them concurrently, not back to back.
+        async let caches: Void = model.refreshSystemCaches()
+        async let sims: Void = model.refreshUnavailableSimulators()
+        _ = await (caches, sims)
+      }
+    }
     .alert("Permanently delete the selected items?", isPresented: $confirmPermanent) {
       Button("Delete", role: .destructive) {
         // Permanent actions have no Trash state to inspect afterwards — surface failures here.
@@ -130,20 +137,23 @@ struct ReviewTreeView: View {
   @ViewBuilder private var permanentSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 8) {
-        Toggle("", isOn: allPermanentBinding).labelsHidden()
+        Toggle("", isOn: allPermanentBinding).toggleStyle(.glowCheckboxBareDanger)
         Label("Permanent · cannot be undone", systemImage: "exclamationmark.octagon.fill")
           .font(.caption.weight(.semibold))
         Spacer()
         Button("Delete selected…") { confirmPermanent = true }
-          .buttonStyle(.glowDanger)
-          .disabled(selectedPermanent.isEmpty)
+          // Danger only when something's selected to delete; otherwise a disabled secondary.
+          .buttonStyle(selectedPermanent.isEmpty ? GlowButtonStyle.glowSecondary : .glowDanger)
+          .disabled(selectedPermanent.isEmpty || model.isBusy)
       }
       if model.systemCacheBytes > 0 {
         permanentRow(.system, "System caches (admin): \(ReclaimLabel.format(model.systemCacheBytes))")
       }
-      permanentRow(.simulators, "Unavailable simulator devices")
+      if model.hasUnavailableSimulators {
+        permanentRow(.simulators, "Unavailable simulator devices")
+      }
       if let permanentFailure {
-        Text(permanentFailure).font(.caption.weight(.semibold))
+        StatusMessage(permanentFailure, kind: .danger, leading: true)
       }
     }
     .padding(12)
@@ -156,14 +166,17 @@ struct ReviewTreeView: View {
 
   private func permanentRow(_ id: PermanentAction, _ label: String) -> some View {
     HStack(spacing: 8) {
-      Toggle("", isOn: permanentBinding(id)).labelsHidden()
+      Toggle("", isOn: permanentBinding(id)).toggleStyle(.glowCheckboxBareDanger)
       Text(label).font(.caption)
       Spacer()
     }
   }
 
   private var permanentIDs: [PermanentAction] {
-    model.systemCacheBytes > 0 ? PermanentAction.allCases : [.simulators]
+    var ids: [PermanentAction] = []
+    if model.systemCacheBytes > 0 { ids.append(.system) }
+    if model.hasUnavailableSimulators { ids.append(.simulators) }
+    return ids
   }
 
   private func permanentBinding(_ id: PermanentAction) -> Binding<Bool> {
@@ -197,7 +210,7 @@ struct ReviewTreeView: View {
 
   @ViewBuilder private func row(_ c: Candidate) -> some View {
     HStack(spacing: 10) {
-      Toggle("", isOn: binding(for: c)).labelsHidden()
+      Toggle("", isOn: binding(for: c)).toggleStyle(.glowCheckboxBare)
       appIcon(for: c)
       VStack(alignment: .leading, spacing: 2) {
         Text(c.url.lastPathComponent).font(.body).foregroundStyle(Color.textPrimary).lineLimit(1)

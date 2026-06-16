@@ -22,7 +22,6 @@ public extension Color {
   static let danger     = Color(hex: "#FF453A")
 
   // Surface tokens — dark-leaning; adapt to system appearance.
-  static let surface       = Color(NSColor.windowBackgroundColor)
   static let surfaceRaised = Color(NSColor.controlBackgroundColor)
   static let textPrimary   = Color(NSColor.labelColor)
   static let textSecondary = Color(NSColor.secondaryLabelColor)
@@ -108,43 +107,59 @@ public enum GlowMetrics {
 public struct GlowButtonStyle: ButtonStyle {
   public enum Kind { case primary, secondary, danger }
   let kind: Kind
-  var compact: Bool = false
-  @Environment(\.isEnabled) private var enabled
 
   public func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .font((compact ? Font.caption : .body).weight(.semibold))
-      .padding(.horizontal, compact ? 12 : 18)
-      .padding(.vertical, compact ? 5 : 9)
-      .foregroundStyle(textColor)
-      .background(fill(pressed: configuration.isPressed), in: Capsule())
-      .overlay { outline }
-      .opacity(enabled ? 1 : 0.45)
-      .contentShape(Capsule())
-      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    StyledLabel(kind: kind, configuration: configuration)
   }
 
-  private var textColor: Color {
-    switch kind {
-    case .primary:   return .white
-    case .secondary: return .textPrimary
-    case .danger:    return .danger
+  // Hover and enabled must live in a real View, not the style struct, so SwiftUI keeps them in sync.
+  private struct StyledLabel: View {
+    let kind: Kind
+    let configuration: ButtonStyleConfiguration
+    @Environment(\.isEnabled) private var enabled
+    @State private var hovering = false
+
+    var body: some View {
+      configuration.label
+        .font(Font.body.weight(.semibold))
+        // Shared min width so full-size pills read as one even system across every page.
+        .frame(minWidth: 110)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 9)
+        .foregroundStyle(textColor)
+        .background(fill(pressed: configuration.isPressed), in: Capsule())
+        .overlay { outline }
+        .brightness(enabled && hovering && !configuration.isPressed ? 0.07 : 0)
+        .scaleEffect(configuration.isPressed ? 0.97 : 1)
+        .opacity(enabled ? 1 : 0.45)
+        .contentShape(Capsule())
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        .animation(.easeOut(duration: 0.12), value: hovering)
     }
-  }
 
-  // Outline distinguishes the non-filled styles: brand for secondary, red for permanent/danger.
-  @ViewBuilder private var outline: some View {
-    switch kind {
-    case .primary:   EmptyView()
-    case .secondary: Capsule().strokeBorder(Color.brand.opacity(enabled ? 0.9 : 0.4), lineWidth: 1.5)
-    case .danger:    Capsule().strokeBorder(Color.danger.opacity(enabled ? 0.9 : 0.4), lineWidth: 1.5)
+    private var textColor: Color {
+      switch kind {
+      case .primary, .danger: return .white
+      case .secondary:        return .textPrimary
+      }
     }
-  }
 
-  private func fill(pressed: Bool) -> Color {
-    switch kind {
-    case .primary:            return Color.brand.opacity(pressed ? 0.82 : 1)
-    case .secondary, .danger: return Color.surfaceRaised.opacity(pressed ? 0.7 : 1)
+    // Secondary is the only outlined kind; primary and danger are filled CTAs.
+    @ViewBuilder private var outline: some View {
+      switch kind {
+      case .primary, .danger: EmptyView()
+      // Full-strength ring; the button's overall opacity handles the disabled dim so it isn't faded twice.
+      case .secondary:        Capsule().strokeBorder(Color.brand.opacity(0.9), lineWidth: 1.5)
+      }
+    }
+
+    private func fill(pressed: Bool) -> Color {
+      switch kind {
+      case .primary:   return Color.brand.opacity(pressed ? 0.82 : 1)
+      case .danger:    return Color.danger.opacity(pressed ? 0.82 : 1)
+      case .secondary: return Color.surfaceRaised.opacity(pressed ? 0.7 : 1)
+      }
     }
   }
 }
@@ -152,8 +167,110 @@ public struct GlowButtonStyle: ButtonStyle {
 public extension ButtonStyle where Self == GlowButtonStyle {
   static var glowPrimary: GlowButtonStyle { .init(kind: .primary) }
   static var glowSecondary: GlowButtonStyle { .init(kind: .secondary) }
-  static var glowSecondaryCompact: GlowButtonStyle { .init(kind: .secondary, compact: true) }
   static var glowDanger: GlowButtonStyle { .init(kind: .danger) }
+}
+
+// Brand checkbox — keeps a green border when unchecked so it reads with the outlined buttons.
+public struct GlowCheckboxStyle: ToggleStyle {
+  var tint: Color = .brand
+  // Bare drops the label so a label-less selection row reserves no trailing gap.
+  var labeled: Bool = true
+
+  public func makeBody(configuration: Configuration) -> some View {
+    Checkbox(configuration: configuration, tint: tint, labeled: labeled)
+  }
+
+  // Hover lives in a real View so the toggle gets the same pointer feedback as the pills.
+  private struct Checkbox: View {
+    let configuration: ToggleStyleConfiguration
+    let tint: Color
+    let labeled: Bool
+    @Environment(\.isEnabled) private var enabled
+    @State private var hovering = false
+
+    var body: some View {
+      Button { configuration.isOn.toggle() } label: {
+        HStack(spacing: 8) {
+          RoundedRectangle(cornerRadius: 4)
+            .fill(configuration.isOn ? tint : .clear)
+            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(tint, lineWidth: 1.5))
+            .overlay {
+              if configuration.isOn {
+                Image(systemName: "checkmark").font(.system(size: 10, weight: .bold))
+                  .foregroundStyle(.white)
+              }
+            }
+            .frame(width: 16, height: 16)
+          if labeled { configuration.label }
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .brightness(enabled && hovering ? 0.08 : 0)
+      .opacity(enabled ? 1 : 0.45)
+      .onHover { hovering = $0 }
+      .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+  }
+}
+
+public extension ToggleStyle where Self == GlowCheckboxStyle {
+  static var glowCheckbox: GlowCheckboxStyle { .init() }
+  static var glowCheckboxBare: GlowCheckboxStyle { .init(labeled: false) }
+  static var glowCheckboxBareDanger: GlowCheckboxStyle { .init(tint: .danger, labeled: false) }
+}
+
+// Inline status line — one icon+text idiom so warnings/errors read the same on every page.
+// Content-sized + centered by default (hero/sheet); `leading` fills width for boxed list rows.
+public struct StatusMessage: View {
+  public enum Kind { case warning, danger }
+  let text: String
+  var kind: Kind = .warning
+  var leading: Bool = false
+
+  public init(_ text: String, kind: Kind = .warning, leading: Bool = false) {
+    self.text = text
+    self.kind = kind
+    self.leading = leading
+  }
+
+  public var body: some View {
+    HStack(alignment: .top, spacing: 6) {
+      Image(systemName: symbol).font(.callout)
+      Text(text).font(.callout).multilineTextAlignment(leading ? .leading : .center)
+      if leading { Spacer(minLength: 0) }
+    }
+    .foregroundStyle(kind == .danger ? Color.danger : Color.warning)
+  }
+
+  // Octagon reserves the most severe glyph for permanent/danger, matching the permanent group header.
+  private var symbol: String {
+    kind == .danger ? "exclamationmark.octagon.fill" : "exclamationmark.triangle"
+  }
+}
+
+// Centered empty-state placeholder — one idiom so every "nothing here" page matches.
+public struct EmptyState: View {
+  let symbol: String
+  let text: String
+
+  public init(symbol: String, text: String) {
+    self.symbol = symbol
+    self.text = text
+  }
+
+  public var body: some View {
+    VStack(spacing: 12) {
+      Image(systemName: symbol)
+        .font(.system(size: 32))
+        .foregroundStyle(Color.textSecondary)
+      Text(text)
+        .font(.body)
+        .foregroundStyle(Color.textSecondary)
+        .multilineTextAlignment(.center)
+    }
+    .frame(maxWidth: .infinity)
+  }
 }
 
 // Consistent leading-aligned page header so every detail page reads the same.

@@ -51,10 +51,14 @@ public final class AppModel: ObservableObject {
   @Published public private(set) var scanDiagnostics: [URL] = []
   /// Size of system `/Library/Caches`; the advanced, root-only, NON-recoverable clean.
   @Published public private(set) var systemCacheBytes: Int64 = 0
+  /// Whether any simulator devices are marked unavailable; gates the permanent row.
+  @Published public private(set) var hasUnavailableSimulators = false
   /// Candidates grouped for the review list; recomputed on scan, not per render.
   @Published public private(set) var reviewGroups: [ReviewGroup] = []
   /// Default pre-checked ids; computed once per scan so views don't rebuild the set per render.
   @Published public private(set) var defaultSelection: Set<String> = []
+  /// User-added folders scanned for large files, on top of the fixed Downloads/Movies defaults.
+  @Published public private(set) var reportFolders: [URL] = []
 
   private func recomputeSelectionTotals() {
     selectedBytes = candidates.filter { selected.contains($0.id) }
@@ -71,17 +75,23 @@ public final class AppModel: ObservableObject {
   // clean path never fires them. Defaults are the real runners, so production behavior is unchanged.
   private let rootRunner: RootCommandRunner
   private let shellRunner: ShellRunner
+  // Injectable so a test can use a throwaway suite instead of the shared standard domain.
+  private let defaults: UserDefaults
+  private static let reportFoldersKey = "reportFolders"
 
   public init(catalog: Catalog, inventory: AppInventory, home: URL,
               mover: ItemMover, storeURL: URL, catalogLoadFailed: Bool = false,
               rootRunner: RootCommandRunner = AdminRunner(),
-              shellRunner: ShellRunner = ProcessRunner()) {
+              shellRunner: ShellRunner = ProcessRunner(),
+              defaults: UserDefaults = .standard) {
     self.catalog = catalog; self.inventory = inventory; self.home = home
     self.mover = mover; self.storeURL = storeURL
     self.catalogLoadFailed = catalogLoadFailed
     self.rootRunner = rootRunner; self.shellRunner = shellRunner
+    self.defaults = defaults
+    reportFolders = (defaults.array(forKey: Self.reportFoldersKey) as? [String] ?? [])
+      .map { URL(fileURLWithPath: $0) }
     refreshHistory()
-    refreshTrash()
   }
 
   // Convenience for the real app: bundled catalog, system services, real $HOME.
@@ -101,9 +111,7 @@ public final class AppModel: ObservableObject {
 
     // Tier policy stays with the caller (Risk.scanTiers/cleanTiers); advanced only adds scanners.
     // The large-file report walk shares no data with the candidate walk — overlap them.
-    async let reportsResult = Task.detached(priority: .userInitiated) { [home] in
-      AdvancedScan.reports(home: home)
-    }.value
+    async let reportsResult = computeReports()
     // Filesystem walks run off the main actor so the UI doesn't stall for the whole scan.
     let diag = ScanDiagnostics()
     let deduped = await Task.detached(priority: .userInitiated) { [catalog, home, inventory, advanced, diag] in
@@ -122,7 +130,6 @@ public final class AppModel: ObservableObject {
     selected = defaultSelection
     reports = await reportsResult
     limitedAccess = !Self.hasFullDiskAccess(home: home)
-    refreshTrash()
     phase = .results
   }
 
@@ -148,7 +155,8 @@ public final class AppModel: ObservableObject {
     lastFreed = toClean.reduce(0) { acc, cand in
       trashedPaths.contains(cand.url.path) ? acc + (sizes[cand.id] ?? 0) : acc
     }
-    refreshTrash()
+    // Listing ~/.Trash needs Full Disk Access, so gate Empty Trash on what this clean actually moved.
+    trashCount += result.trashed.count
     phase = .done
   }
 
@@ -200,11 +208,29 @@ public final class AppModel: ObservableObject {
     lastCleanFailures = result.failures.count
     recordHistory(result.trashed)
     lastFreed = result.trashed.reduce(0) { $0 + $1.bytes }
-    refreshTrash()
+    trashCount += result.trashed.count
   }
 
   /// Whether any cleanup is still restorable; fully-restored batches are dropped from history.
   public var canRestoreLast: Bool { !batches.isEmpty }
+
+  /// The newest batch whose trashed files are still present; only it offers a per-row "Put back".
+  public var latestRestorableBatch: CleanupBatch? {
+    guard let latest = batches.first, RestoreStore.isRestorable(latest) else { return nil }
+    return latest
+  }
+
+  /// A long-running file operation is in flight; every action button gates on this so none fire mid-op.
+  public var isBusy: Bool { phase == .scanning || phase == .cleaning || restoring || quickCleanBusy }
+
+  /// Trash holds items we moved there; drives both the enabled state and the primary/secondary look of Empty Trash.
+  public var canEmptyTrash: Bool { trashCount > 0 }
+
+  /// There's a selection to clean; drives the enabled state and the primary/secondary look of Clean My Mac.
+  public var canClean: Bool { selectedBytes > 0 }
+
+  /// The selection differs from the default tiers, so resetting is a real action.
+  public var canResetSelection: Bool { !candidates.isEmpty && selected != defaultSelection }
 
   /// Bundled catalog location, exposed so views never touch GlowKit services directly.
   public var catalogURL: URL? { CatalogLoader.bundledURL }
@@ -215,8 +241,53 @@ public final class AppModel: ObservableObject {
     return (try? FileManager.default.contentsOfDirectory(atPath: probe.path)) != nil
   }
 
-  public func refreshTrash() {
-    trashCount = EmptyTrash.itemCount()
+  /// Adds a user folder to the large-file report (no-op if already present), then refreshes reports.
+  public func addReportFolder(_ url: URL) {
+    let std = url.standardizedFileURL
+    guard !reportFolders.contains(where: { $0.standardizedFileURL == std }) else { return }
+    reportFolders.append(std)
+    persistReportFolders()
+    Task { await refreshReports() }
+  }
+
+  public func removeReportFolder(_ url: URL) {
+    let std = url.standardizedFileURL
+    reportFolders.removeAll { $0.standardizedFileURL == std }
+    persistReportFolders()
+    Task { await refreshReports() }
+  }
+
+  // Reports-only refresh so adding a folder doesn't force a full candidate rescan.
+  public func refreshReports() async { reports = await computeReports() }
+
+  // One reports computation shared by scan() (overlapped) and refreshReports() (folder edits).
+  private func computeReports() async -> [Report] {
+    await Task.detached(priority: .userInitiated) { [home, reportFolders] in
+      AdvancedScan.reports(home: home, extraDirs: reportFolders)
+    }.value
+  }
+
+  /// Moves the selected report files to the Trash. These are the user's own data, so it's a manual,
+  /// explicit action — never the automated clean — but stays recoverable (Trash + recorded for undo).
+  public func trashReports(_ ids: Set<String>) async {
+    guard !ids.isEmpty, phase != .cleaning, !restoring, !quickCleanBusy else { return }
+    let targets = reports.filter { ids.contains($0.id) }
+    guard !targets.isEmpty else { return }
+    let items = targets.map { ($0.url, $0.bytes) }
+    let mover = self.mover
+    let result = await Task.detached(priority: .userInitiated) {
+      Trasher(mover: mover).trash(items)
+    }.value
+    lastCleanFailures = result.failures.count
+    recordHistory(result.trashed)
+    trashCount += result.trashed.count
+    // Drop trashed files so the list reflects what is still on disk.
+    let trashedPaths = Set(result.trashed.map(\.originalPath))
+    reports.removeAll { trashedPaths.contains($0.url.path) }
+  }
+
+  private func persistReportFolders() {
+    defaults.set(reportFolders.map(\.path), forKey: Self.reportFoldersKey)
   }
 
   public func refreshSystemCaches() async {
@@ -233,27 +304,46 @@ public final class AppModel: ObservableObject {
     return ok
   }
 
+  public func refreshUnavailableSimulators() async {
+    hasUnavailableSimulators = await Task.detached(priority: .userInitiated) { [shellRunner] in
+      SimulatorCleaner.hasUnavailable(runner: shellRunner)
+    }.value
+  }
+
   // Removes simulator devices macOS marks unavailable; permanent but safe (they're already unusable).
   // Off the main actor so the simctl subprocess wait can't freeze the UI.
   public func removeUnavailableSimulators() async -> Bool {
-    await Task.detached(priority: .userInitiated) { [shellRunner] in
+    let ok = await Task.detached(priority: .userInitiated) { [shellRunner] in
       SimulatorCleaner.deleteUnavailable(runner: shellRunner)
     }.value
+    // A successful delete leaves none unavailable; skip the extra simctl list on the common path.
+    if ok { hasUnavailableSimulators = false } else { await refreshUnavailableSimulators() }
+    return ok
   }
 
   public func refreshHistory() {
     batches = RestoreStore(storeURL: storeURL).batches()
   }
 
+  /// Forget the selected cleanup records; the files stay in the Trash (use Empty Trash to free them).
+  public func forgetHistory(_ ids: Set<String>) {
+    guard !ids.isEmpty else { return }
+    _ = RestoreStore(storeURL: storeURL).remove(ids: ids)
+    refreshHistory()
+  }
+
   public func emptyTrash() {
     // Never empty while a clean/restore is moving files through the Trash — Finder's empty would race them.
     guard phase != .cleaning, !restoring, !quickCleanBusy else { return }
-    // Disable immediately, then re-stat so a failed Finder empty re-enables the button.
+    // Disable immediately; a failed Finder empty restores the count so the button re-enables.
+    let previous = trashCount
     trashCount = 0
     Task {
       let ok = await Task.detached(priority: .userInitiated) { EmptyTrash.empty() }.value
-      if !ok { lastCleanWarning = "Couldn't empty the Trash — check Finder automation permission." }
-      refreshTrash()
+      if !ok {
+        lastCleanWarning = "Couldn't empty the Trash — check Finder automation permission."
+        trashCount = previous
+      }
     }
   }
 
@@ -271,6 +361,8 @@ public final class AppModel: ObservableObject {
     }.value
     let res = RestoreResult(restored: r.restored, failed: r.failed.count)
     lastRestore = res
+    // Restored items leave the Trash, so they no longer count toward Empty Trash.
+    trashCount = max(0, trashCount - res.restored)
     // A failed history prune leaves a stale batch on disk; surface it rather than swallow it.
     if !r.historyPruned {
       lastCleanWarning = "Restore succeeded but history couldn't be updated."

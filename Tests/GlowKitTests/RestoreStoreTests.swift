@@ -39,6 +39,26 @@ final class RestoreStoreTests: XCTestCase {
     XCTAssertTrue(s.batches().isEmpty)
   }
 
+  func test_removeIdsForgetsMultipleRecords() throws {
+    let s = RestoreStore(storeURL: store)
+    try s.record(batch("a", []))
+    try s.record(batch("b", []))
+    try s.record(batch("c", []))
+    XCTAssertTrue(s.remove(ids: ["a", "c"]), "removing present ids reports the prune")
+    XCTAssertEqual(s.batches().map(\.id), ["b"], "only unselected records remain")
+    XCTAssertFalse(s.remove(ids: ["x"]), "removing only absent ids is a no-op")
+  }
+
+  func test_isRestorableTrueWhenAnyItemStillInTrash() throws {
+    let present = dir.appending(path: "still-here.txt")
+    try Data("x".utf8).write(to: present)
+    let here = TrashedItem(originalPath: dir.appending(path: "o1.txt").path, trashedPath: present.path)
+    let gone = TrashedItem(originalPath: dir.appending(path: "o2.txt").path,
+                           trashedPath: dir.appending(path: "missing.txt").path)
+    XCTAssertTrue(RestoreStore.isRestorable(batch("a", [here, gone])), "any present item makes it restorable")
+    XCTAssertFalse(RestoreStore.isRestorable(batch("b", [gone])), "no present items → not restorable")
+  }
+
   func test_restoreMovesItemsBackAndCountsSuccesses() throws {
     // Simulate trashed state: original gone, trashed copy present.
     let original = dir.appending(path: "doc.txt")

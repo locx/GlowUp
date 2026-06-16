@@ -1,5 +1,6 @@
 import XCTest
 import GlowKit
+import GlowTestSupport
 @testable import GlowUpCLI
 
 final class CLIRunTests: XCTestCase {
@@ -75,12 +76,12 @@ final class CLIRunTests: XCTestCase {
       ]
     }
     """
-    return try! CatalogLoader.load(data: Data(s.utf8))
+    return try! Catalog.decode(s)
   }
 
   private func run(_ args: [String]) async -> (String, Int32) {
     await CLI.run(args: args, catalog: catalogJSON(),
-                  inventory: AlwaysInstalled(), home: home,
+                  inventory: InstalledInventory(), home: home,
                   mover: BinMover(bin: bin), storeURL: store)
   }
 
@@ -286,18 +287,5 @@ final class CLIRunTests: XCTestCase {
                    "advanced flags exactly the safe cache, the rebuildable artifact, and the privacy path")
     XCTAssertTrue(advanced.isSuperset(of: base),
                   "advanced must be a superset of default — the behavioral-diff invariant")
-  }
-}
-
-struct AlwaysInstalled: AppInventory {
-  func isInstalled(bundleID: String) -> Bool { true }
-  // Installed apps contribute name tokens, so their Library dirs aren't flagged as orphans.
-  func knownSet() -> Set<String> { ["code"] }
-}
-struct BinMover: ItemMover {
-  let bin: URL
-  func trash(_ url: URL) throws -> URL {
-    let d = bin.appending(path: "\(UUID().uuidString)-\(url.lastPathComponent)")
-    try FileManager.default.moveItem(at: url, to: d); return d
   }
 }

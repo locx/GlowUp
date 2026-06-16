@@ -12,14 +12,4 @@ public enum EmptyTrash {
     do { try p.run(); p.waitUntilExit() } catch { return false }
     return p.terminationStatus == 0
   }
-
-  // Item count in the user's Trash, so the Empty Trash button can disable when there's nothing to empty.
-  public static func itemCount() -> Int {
-    let fm = FileManager.default
-    guard let url = try? fm.url(for: .trashDirectory, in: .userDomainMask,
-                                appropriateFor: nil, create: false),
-          let items = try? fm.contentsOfDirectory(atPath: url.path)
-    else { return 0 }
-    return items.filter { $0 != ".DS_Store" }.count
-  }
 }

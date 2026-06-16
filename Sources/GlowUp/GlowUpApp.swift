@@ -44,7 +44,7 @@ private struct MenuBarContent: View {
         await model.quickClean(items)
       }
     }
-    .disabled(model.phase == .scanning || model.phase == .cleaning || model.quickCleanBusy)
+    .disabled(model.isBusy)
     Button("Open GlowUp…") {
       // Recreate the window if it was closed; activation alone can't bring back a closed WindowGroup.
       openWindow(id: "main")

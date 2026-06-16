@@ -1,4 +1,5 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 // The single safety gate. Swept (inferred) hits face the deny-list AND the data-store guard;
@@ -7,20 +8,14 @@ final class VetterTests: XCTestCase {
   private var home: URL!
 
   override func setUpWithError() throws {
-    home = URL(fileURLWithPath: NSTemporaryDirectory())
-      .appending(path: "glow-vet-\(UUID().uuidString)")
-    try mkdir("Library/Caches/plain")
-    try mkdir("Library/Caches/withstore/IndexedDB")
-    try mkdir("Library/Caches/creds")
+    home = TempDir.make("glow-vet")
+    try home.makeDir("Library/Caches/plain")
+    try home.makeDir("Library/Caches/withstore/IndexedDB")
+    try home.makeDir("Library/Caches/creds")
     try Data().write(to: home.appending(path: "Library/Caches/creds/secret.pem"))
-    try mkdir("Documents/keep")
+    try home.makeDir("Documents/keep")
   }
   override func tearDownWithError() throws { try? FileManager.default.removeItem(at: home) }
-
-  private func mkdir(_ rel: String) throws {
-    try FileManager.default.createDirectory(
-      at: home.appending(path: rel), withIntermediateDirectories: true)
-  }
   private func cand(_ rel: String) -> Candidate {
     Candidate(ruleID: "t", app: nil, category: "appCaches", risk: .rebuildable,
               why: "x", url: home.appending(path: rel))
@@ -58,7 +53,7 @@ final class VetterTests: XCTestCase {
     // silently let live app state be swept.
     for name in DataStoreGuard.names {
       let parent = "Library/Caches/host-\(UUID().uuidString)"
-      try mkdir("\(parent)/\(name)")
+      try home.makeDir("\(parent)/\(name)")
       let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
       XCTAssertTrue(out.isEmpty, "guarded name \(name) failed to drop its swept parent")
     }
@@ -73,7 +68,7 @@ final class VetterTests: XCTestCase {
     // A store dir written in nonstandard case must still drop its swept parent.
     for name in ["indexeddb", "LOCAL STORAGE", "cookies"] {
       let parent = "Library/Caches/host-\(UUID().uuidString)"
-      try mkdir("\(parent)/\(name)")
+      try home.makeDir("\(parent)/\(name)")
       let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
       XCTAssertTrue(out.isEmpty, "case-variant store name \(name) failed to drop its swept parent")
     }
@@ -82,7 +77,7 @@ final class VetterTests: XCTestCase {
   func test_deeplyNestedCredentialVetoesSweptParent() throws {
     // A credential four levels down must still veto the swept parent (probe depth matches the guard).
     let parent = "Library/Caches/deepcreds"
-    try mkdir("\(parent)/a/b/c")
+    try home.makeDir("\(parent)/a/b/c")
     try Data().write(to: home.appending(path: "\(parent)/a/b/c/id_rsa"))
     let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
     XCTAssertTrue(out.isEmpty, "a credential at the 4th level must drop its swept parent")
@@ -93,7 +88,7 @@ final class VetterTests: XCTestCase {
     // parent survives. Pairs with the depth-3 boundary case above; changing the bound is a
     // perf decision, not a safety upgrade.
     let parent = "Library/Caches/depthgap"
-    try mkdir("\(parent)/a/b/c/d")
+    try home.makeDir("\(parent)/a/b/c/d")
     try Data().write(to: home.appending(path: "\(parent)/a/b/c/d/id_rsa"))
     let out = Vetter.vet(catalog: [], swept: [cand(parent)], home: home)
     XCTAssertEqual(out.count, 1, "a credential below the probe depth is not caught")
@@ -103,7 +98,7 @@ final class VetterTests: XCTestCase {
     // A subtree we can't read can't be proven clean, so the swept parent must be vetoed.
     try XCTSkipIf(getuid() == 0, "root bypasses the permission denial this test relies on")
     let parent = "Library/Caches/locked"
-    try mkdir("\(parent)/secret")
+    try home.makeDir("\(parent)/secret")
     let secret = home.appending(path: "\(parent)/secret")
     try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: secret.path)
     defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: secret.path) }

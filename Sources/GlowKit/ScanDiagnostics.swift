@@ -17,6 +17,8 @@ public final class ScanDiagnostics: @unchecked Sendable {
   public var failedDirectories: [URL] {
     lock.lock()
     defer { lock.unlock() }
-    return failed
+    // Specs sharing a glob prefix fail on the same dir; surface each once, in first-seen order.
+    var seen = Set<URL>()
+    return failed.filter { seen.insert($0).inserted }
   }
 }

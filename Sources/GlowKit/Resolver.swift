@@ -28,6 +28,9 @@ public enum Resolver {
   private static func children(_ dir: URL, matching pattern: String,
                                diagnostics: ScanDiagnostics? = nil) -> [URL] {
     let fm = FileManager.default
+    // A missing intermediate path (app not installed) is normal, not a read failure to surface.
+    var isDir: ObjCBool = false
+    guard fm.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else { return [] }
     guard let names = try? fm.contentsOfDirectory(atPath: dir.path) else {
       diagnostics?.recordFailure(dir)
       return []

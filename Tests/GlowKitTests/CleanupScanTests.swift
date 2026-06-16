@@ -1,13 +1,10 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 // A vetted catalog rule must keep its category/tier across modes; the generic sweep may not
 // relabel a Caches dir the catalog already names (the safe-vs-advanced consistency contract).
 final class CleanupScanTests: XCTestCase {
-  private struct StubInventory: AppInventory {
-    func isInstalled(bundleID: String) -> Bool { false }
-  }
-
   private var home: URL!
   override func setUpWithError() throws {
     home = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -30,7 +27,7 @@ final class CleanupScanTests: XCTestCase {
 
   private func categories(advanced: Bool) -> Set<String> {
     let out = CleanupScan.candidates(
-      home: home, catalog: catalog(), inventory: StubInventory(),
+      home: home, catalog: catalog(), inventory: FakeInventory(installed: []),
       includeRisks: Risk.scanTiers(advanced: advanced), advanced: advanced)
     return Set(out.map(\.category))
   }
@@ -80,7 +77,7 @@ final class CleanupScanTests: XCTestCase {
     ]
     let cat = Catalog(schemaVersion: 1, rules: rules, projectRoots: [], projectArtifacts: [])
     let out = CleanupScan.candidates(
-      home: home, catalog: cat, inventory: StubInventory(),
+      home: home, catalog: cat, inventory: FakeInventory(installed: []),
       includeRisks: Risk.scanTiers(advanced: true), advanced: true)
     // Exactly the three catalog survivors — every swept overlap (descendant + ancestor) is dropped,
     // and no spurious extra candidate slips through. Total-count guard, not just the two absences.
@@ -120,7 +117,7 @@ final class CleanupScanTests: XCTestCase {
     // Empty catalog so every surviving candidate originates from a swept scanner.
     let cat = Catalog(schemaVersion: 1, rules: [], projectRoots: [], projectArtifacts: [])
     let out = CleanupScan.candidates(
-      home: home, catalog: cat, inventory: StubInventory(),
+      home: home, catalog: cat, inventory: FakeInventory(installed: []),
       includeRisks: Risk.scanTiers(advanced: true), advanced: true)
     XCTAssertFalse(out.isEmpty, "expected swept candidates in the synthetic home")
     for c in out {

@@ -1,21 +1,17 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 final class ScannerTests: XCTestCase {
   private var home: URL!
 
   override func setUpWithError() throws {
-    home = URL(fileURLWithPath: NSTemporaryDirectory())
-      .appending(path: "glow-scan-\(UUID().uuidString)")
-    try mk("Library/Caches/Code/CachedData")
-    try mk("Library/Application Support/Code/WebStorage")
+    home = TempDir.make("glow-scan")
+    try home.makeDir("Library/Caches/Code/CachedData")
+    try home.makeDir("Library/Application Support/Code/WebStorage")
   }
   override func tearDownWithError() throws {
     try? FileManager.default.removeItem(at: home)
-  }
-  private func mk(_ rel: String) throws {
-    try FileManager.default.createDirectory(
-      at: home.appending(path: rel), withIntermediateDirectories: true)
   }
 
   private func catalog(requiresInstalled: Bool) -> Catalog {

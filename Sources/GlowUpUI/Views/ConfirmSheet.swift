@@ -22,15 +22,10 @@ struct ConfirmSheet: View {
         .multilineTextAlignment(.center).foregroundStyle(.secondary)
       if !nonSafe.isEmpty {
         // Itemize non-safe items so the copy honestly reflects the full selection.
-        HStack(alignment: .top, spacing: 6) {
-          Image(systemName: "exclamationmark.triangle")
-            .foregroundStyle(Color.warning).font(.callout)
-          Text("Includes \(nonSafe.count) item\(nonSafe.count == 1 ? "" : "s") "
-             + "that aren't just caches (\(nonSafeCategories)).")
-            .font(.callout).foregroundStyle(Color.warning).multilineTextAlignment(.leading)
-        }
-        .padding(10)
-        .background(Color.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        StatusMessage("Includes \(nonSafe.count) item\(nonSafe.count == 1 ? "" : "s") "
+                    + "that aren't just caches (\(nonSafeCategories)).", leading: true)
+          .padding(10)
+          .background(Color.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
       }
       HStack {
         Button("Not now", action: cancel).buttonStyle(.glowSecondary)

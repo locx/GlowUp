@@ -1,22 +1,18 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 final class ResolverTests: XCTestCase {
   private var home: URL!
 
   override func setUpWithError() throws {
-    home = URL(fileURLWithPath: NSTemporaryDirectory())
-      .appending(path: "glowkit-\(UUID().uuidString)")
-    try mk("Library/Caches/Code/CachedData")
-    try mk("Library/Application Support/Brave/Default/Cache")
-    try mk("Library/Application Support/Brave/Profile 1/Cache")
+    home = TempDir.make("glowkit")
+    try home.makeDir("Library/Caches/Code/CachedData")
+    try home.makeDir("Library/Application Support/Brave/Default/Cache")
+    try home.makeDir("Library/Application Support/Brave/Profile 1/Cache")
   }
   override func tearDownWithError() throws {
     try? FileManager.default.removeItem(at: home)
-  }
-  private func mk(_ rel: String) throws {
-    try FileManager.default.createDirectory(
-      at: home.appending(path: rel), withIntermediateDirectories: true)
   }
 
   func test_resolvesExactPath() {
@@ -37,7 +33,7 @@ final class ResolverTests: XCTestCase {
   }
 
   func test_neverReturnsVetoedPaths() throws {
-    try mk("Documents/Code")   // would match the glob shape but is protected
+    try home.makeDir("Documents/Code")   // would match the glob shape but is protected
     let spec = PathSpec(base: .home, glob: "Documents/Code")
     XCTAssertTrue(Resolver.resolve(spec, home: home).isEmpty)
   }

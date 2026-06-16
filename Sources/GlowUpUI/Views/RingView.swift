@@ -31,10 +31,13 @@ struct RingView: View {
   let categoryBytes: [CategorySlice]
   let totalBytes: Int64
   let phase: AppModel.Phase
+  // A limited scan didn't see everything, so an empty result must not read as a clean Mac.
+  var limited: Bool = false
   @Environment(\.accessibilityReduceMotion) private var reduce
 
   @State private var revealed: Int = 0
   @State private var animationAngle: Angle = .zero
+  @State private var sealBounce = false
 
   private let lineWidth: CGFloat = 28
   private let gapDegrees: Double = 1.5
@@ -117,7 +120,9 @@ struct RingView: View {
       .font(.system(size: 26))
       .foregroundStyle(Color.brand)
     if #available(macOS 15, *) {
-      seal.symbolEffect(.bounce)
+      seal
+        .symbolEffect(.bounce, value: sealBounce)
+        .onAppear { sealBounce.toggle() }
     } else {
       seal
     }
@@ -157,6 +162,10 @@ struct RingView: View {
             .lineLimit(1).minimumScaleFactor(0.5)
             .contentTransition(.numericText())
           Text("to free up").foregroundStyle(Color.textSecondary).font(.title3)
+        } else if limited {
+          Text("Scan was limited")
+            .font(.title3).multilineTextAlignment(.center)
+            .foregroundStyle(Color.textSecondary)
         } else {
           Text("Your Mac is already sparkling")
             .font(.title3).multilineTextAlignment(.center)

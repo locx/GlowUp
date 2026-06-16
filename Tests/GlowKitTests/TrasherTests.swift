@@ -1,4 +1,5 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 final class TrasherTests: XCTestCase {
@@ -6,10 +7,8 @@ final class TrasherTests: XCTestCase {
   private var bin: URL!     // stand-in trash directory
 
   override func setUpWithError() throws {
-    work = URL(fileURLWithPath: NSTemporaryDirectory())
-      .appending(path: "glow-trash-\(UUID().uuidString)")
-    bin = work.appending(path: "_bin")
-    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    work = TempDir.make("glow-trash")
+    bin = try work.makeDir("_bin")
   }
   override func tearDownWithError() throws {
     try? FileManager.default.removeItem(at: work)
@@ -22,7 +21,7 @@ final class TrasherTests: XCTestCase {
 
   func test_trashesFilesAndReportsTrashedItems() throws {
     let f = try makeFile("a.txt")
-    let mover = FakeMover(bin: bin)
+    let mover = BinMover(bin: bin)
     let result = Trasher(mover: mover).trash([(url: f, bytes: 42)])
 
     XCTAssertEqual(result.trashed.count, 1)
@@ -39,7 +38,7 @@ final class TrasherTests: XCTestCase {
   func test_reportsFailureForMissingFileButKeepsGoing() throws {
     let good = try makeFile("good.txt")
     let missing = work.appending(path: "missing.txt")
-    let result = Trasher(mover: FakeMover(bin: bin)).trash([(url: missing, bytes: 0),
+    let result = Trasher(mover: BinMover(bin: bin)).trash([(url: missing, bytes: 0),
                                                             (url: good, bytes: 1)])
 
     XCTAssertEqual(result.trashed.count, 1)
@@ -56,7 +55,7 @@ final class TrasherTests: XCTestCase {
       at: nested.deletingLastPathComponent(), withIntermediateDirectories: true)
     try Data("y".utf8).write(to: nested)
 
-    let result = Trasher(mover: FakeMover(bin: bin)).trash([(url: dir, bytes: 100)])
+    let result = Trasher(mover: BinMover(bin: bin)).trash([(url: dir, bytes: 100)])
 
     XCTAssertEqual(result.trashed.count, 1)
     XCTAssertTrue(result.failures.isEmpty)
@@ -67,15 +66,5 @@ final class TrasherTests: XCTestCase {
     // Caller-supplied size must be recorded; modification date must be present.
     XCTAssertEqual(result.trashed[0].bytes, 100)
     XCTAssertNotNil(result.trashed[0].modified)
-  }
-}
-
-// Moves into a temp directory instead of the real Trash.
-struct FakeMover: ItemMover {
-  let bin: URL
-  func trash(_ url: URL) throws -> URL {
-    let dest = bin.appending(path: url.lastPathComponent)
-    try FileManager.default.moveItem(at: url, to: dest)
-    return dest
   }
 }

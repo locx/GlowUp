@@ -32,12 +32,32 @@ struct Sidebar: View {
       .frame(maxHeight: GlowMetrics.headerBand)
       .padding(.horizontal, 14)
       Divider()
-      List(NavSection.allCases, selection: $selection) { s in
-        Label { Text(s.rawValue) } icon: { Image(systemName: s.icon) }
-          .tag(s)
+      // Custom rows so selection reads brand-green, not the macOS system accent.
+      VStack(spacing: 2) {
+        ForEach(NavSection.allCases) { s in
+          SidebarRow(section: s, isSelected: selection == s) { selection = s }
+        }
       }
-      .listStyle(.sidebar)
+      .padding(8)
+      Spacer()
     }
-    .navigationTitle("GlowUp")
+  }
+}
+
+private struct SidebarRow: View {
+  let section: NavSection
+  let isSelected: Bool
+  let select: () -> Void
+
+  var body: some View {
+    Button(action: select) {
+      Label { Text(section.rawValue) } icon: { Image(systemName: section.icon) }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(isSelected ? Color.brand.opacity(0.18) : .clear,
+                    in: RoundedRectangle(cornerRadius: 6))
+        .foregroundStyle(isSelected ? Color.brand : Color.textPrimary)
+    }
+    .buttonStyle(.plain)
   }
 }

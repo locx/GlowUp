@@ -9,11 +9,16 @@ public enum AdvancedScan {
                                diagnostics: diagnostics)
   }
 
+  // Always-scanned baseline folders; shared with the Reports UI so the shown list can't drift.
+  public static let defaultReportFolderNames = ["Downloads", "Movies"]
+
   /// Report-only large files surfaced alongside results (never auto-cleaned).
-  public static func reports(home: URL) -> [Report] {
-    LargeFileReporter.scan(
-      dirs: [home.appending(path: "Downloads"), home.appending(path: "Movies")],
-      minBytes: 100_000_000
-    )
+  /// `extraDirs` are user-added folders; the baseline folders are always included.
+  public static func reports(home: URL, extraDirs: [URL] = []) -> [Report] {
+    let roots = defaultReportFolderNames.map { home.appending(path: $0) } + extraDirs
+    // Dedupe by resolved path so an added folder overlapping a default isn't listed twice.
+    var seen = Set<String>()
+    let dirs = roots.filter { seen.insert($0.standardizedFileURL.path).inserted }
+    return LargeFileReporter.scan(dirs: dirs, minBytes: 100_000_000)
   }
 }
