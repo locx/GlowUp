@@ -1,4 +1,5 @@
 import XCTest
+import GlowTestSupport
 @testable import GlowKit
 
 // Regression tests for the symlink-follow and version-suffix parsing fixes.
@@ -29,6 +30,7 @@ final class AdvancedScannerFixTests: XCTestCase {
     for name in ["ms.tool-1.0.0-darwin-arm64", "ms.tool-1.2.0-darwin-arm64"] {
       try fm.createDirectory(at: ext.appending(path: name), withIntermediateDirectories: true)
     }
+    try root.writeVSCodeRegistry(["ms.tool": "ms.tool-1.2.0-darwin-arm64"])
     let found = DuplicateExtensionScanner.scan(home: root)
     // Same extension despite the platform suffix; only the older build is flagged.
     XCTAssertEqual(found.map(\.url.lastPathComponent), ["ms.tool-1.0.0-darwin-arm64"])
@@ -41,6 +43,7 @@ final class AdvancedScannerFixTests: XCTestCase {
     for name in ["ms.tool-1.5.0-darwin-arm64", "ms.tool-1.5.0-darwin-x64"] {
       try fm.createDirectory(at: ext.appending(path: name), withIntermediateDirectories: true)
     }
+    try root.writeVSCodeRegistry(["ms.tool": "ms.tool-1.5.0-darwin-arm64"])
     let found = DuplicateExtensionScanner.scan(home: root)
     XCTAssertTrue(found.isEmpty, "equal-version platform builds must not be flagged")
   }
@@ -51,6 +54,7 @@ final class AdvancedScannerFixTests: XCTestCase {
     for name in ["ms.tool-1.0.0-darwin-arm64", "ms.tool-1.2.0-darwin-arm64"] {
       try fm.createDirectory(at: ext.appending(path: name), withIntermediateDirectories: true)
     }
+    try root.writeVSCodeRegistry(["ms.tool": "ms.tool-1.2.0-darwin-arm64"])
     let found = DuplicateExtensionScanner.scan(home: root)
     // Only the strictly older version is flagged.
     XCTAssertEqual(found.map(\.url.lastPathComponent), ["ms.tool-1.0.0-darwin-arm64"])

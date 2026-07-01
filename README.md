@@ -19,6 +19,15 @@ Three independent layers; a candidate is cleaned only if it passes all three:
 3. **Recoverable + reversible.** Trash-only, dry-run by default, explicit
    confirm, and **Restore last cleanup** that survives relaunch.
 
+## Security posture
+
+- **Not sandboxed** (`com.apple.security.app-sandbox = false`). Reclaiming caches under
+  `~/Library` needs Full Disk Access, which the App Sandbox cannot grant, so GlowUp ships
+  unsandboxed — with a hardened runtime and notarization instead.
+- **One irreversible action.** Everything GlowUp cleans goes to the Trash and is restorable —
+  *except* "Clean System Caches" (Advanced), which deletes `/Library/Caches` as root and cannot be
+  undone. It is opt-in, warns before running, and requires an administrator password.
+
 ## Trust
 
 - **No telemetry. No network. Open source (MIT).**

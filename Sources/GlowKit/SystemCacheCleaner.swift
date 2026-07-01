@@ -60,6 +60,7 @@ public enum SystemCacheCleaner {
             !p.contains("/..") else { return nil }
       args.append("'" + p.replacingOccurrences(of: "'", with: "'\\''") + "'")
     }
-    return "/bin/rm -rf " + args.joined(separator: " ")
+    // `--` ends option parsing, so a cache dir whose name starts with `-` can't act as an rm flag.
+    return "/bin/rm -rf -- " + args.joined(separator: " ")
   }
 }

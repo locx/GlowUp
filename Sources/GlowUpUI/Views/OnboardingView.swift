@@ -6,9 +6,10 @@ struct OnboardingView: View {
     VStack(spacing: 16) {
       EmptyState(symbol: "lock.shield",
                  text: "Limited access — grant Full Disk Access so GlowUp can find more to clean.")
-      Link("Open Full Disk Access settings",
-           destination: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
-        .buttonStyle(.glowSecondary)
+      if let url = AppLinks.fullDiskAccessSettings {
+        Link("Open Full Disk Access settings", destination: url)
+          .buttonStyle(.glowSecondary)
+      }
     }
     .padding(24)
   }

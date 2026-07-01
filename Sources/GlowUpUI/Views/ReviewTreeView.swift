@@ -12,6 +12,7 @@ struct ReviewTreeView: View {
   @State private var permanentFailure: String?
 
   var body: some View {
+    let permanent = model.advanced ? permanentIDs : []
     VStack(spacing: 0) {
       PageHeader("Review", subtitle: "What will be cleaned — untick anything you want to keep.")
 
@@ -39,7 +40,7 @@ struct ReviewTreeView: View {
 
       // Permanent group: these bypass the Trash and CAN'T be undone, so they're boxed off in red.
       // Hidden entirely when there's nothing permanent to remove — no empty red box.
-      if model.advanced, !permanentIDs.isEmpty { permanentSection }
+      if !permanent.isEmpty { permanentSection(permanent) }
 
       // Hint banner when advanced is off — full-width, top-aligned icon+text.
       if !model.advanced {
@@ -134,10 +135,10 @@ struct ReviewTreeView: View {
   }
 
   // Boxed-off, red group for actions that bypass the Trash — same leading-checkbox pattern as rows.
-  @ViewBuilder private var permanentSection: some View {
+  @ViewBuilder private func permanentSection(_ ids: [PermanentAction]) -> some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 8) {
-        Toggle("", isOn: allPermanentBinding).toggleStyle(.glowCheckboxBareDanger)
+        Toggle("", isOn: allPermanentBinding(ids)).toggleStyle(.glowCheckboxBareDanger)
         Label("Permanent · cannot be undone", systemImage: "exclamationmark.octagon.fill")
           .font(.caption.weight(.semibold))
         Spacer()
@@ -191,9 +192,9 @@ struct ReviewTreeView: View {
             })
   }
 
-  private var allPermanentBinding: Binding<Bool> {
-    Binding(get: { !permanentIDs.isEmpty && permanentIDs.allSatisfy(selectedPermanent.contains) },
-            set: { on in selectedPermanent = on ? Set(permanentIDs) : [] })
+  private func allPermanentBinding(_ ids: [PermanentAction]) -> Binding<Bool> {
+    Binding(get: { !ids.isEmpty && ids.allSatisfy(selectedPermanent.contains) },
+            set: { on in selectedPermanent = on ? Set(ids) : [] })
   }
 
   private func groupBinding(_ g: ReviewGroup) -> Binding<Bool> {
@@ -214,7 +215,7 @@ struct ReviewTreeView: View {
       appIcon(for: c)
       VStack(alignment: .leading, spacing: 2) {
         Text(c.url.lastPathComponent).font(.body).foregroundStyle(Color.textPrimary).lineLimit(1)
-        Text(c.url.path).font(.caption).foregroundStyle(Color.textSecondary).lineLimit(1)
+        RevealPathLabel(url: c.url)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       // Fixed-width tag and size columns so every row lines up.

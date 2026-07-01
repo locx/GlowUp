@@ -12,8 +12,9 @@ struct AboutPanel: View {
           .font(.caption).foregroundStyle(Color.textSecondary)
         Text("A free, open-source macOS cleanup utility. Safety is the product; reclaim is the feature.")
           .multilineTextAlignment(.center).foregroundStyle(Color.textSecondary)
-        Link("View on GitHub", destination: URL(string: "https://github.com/locx/GlowUp")!)
-          .buttonStyle(.glowSecondary)
+        if let url = AppLinks.gitHub {
+          Link("View on GitHub", destination: url).buttonStyle(.glowSecondary)
+        }
         Spacer()
       }
       .pagePadding()

@@ -165,8 +165,10 @@ struct HeroPanel: View {
         if let url = model.catalogURL { NSWorkspace.shared.open(url) }
       }
       .font(.caption2).buttonStyle(.plain).foregroundStyle(Color.brand)
-      Link("View on GitHub", destination: URL(string: "https://github.com/locx/GlowUp")!)
-        .font(.caption2).foregroundStyle(Color.brand)
+      if let url = AppLinks.gitHub {
+        Link("View on GitHub", destination: url)
+          .font(.caption2).foregroundStyle(Color.brand)
+      }
     }
     .fixedSize(horizontal: false, vertical: true)
     .multilineTextAlignment(.center)
@@ -182,10 +184,7 @@ struct HeroPanel: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 4) {
           ForEach(model.scanDiagnostics, id: \.self) { url in
-            Text(url.path)
-              .font(.caption.monospaced())
-              .textSelection(.enabled)
-              .lineLimit(1).truncationMode(.middle)
+            RevealPathLabel(url: url, font: .caption, monospaced: true)
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -21,6 +21,16 @@ public extension URL {
     return dir
   }
 
+  // Write a VSCode extensions.json under this URL mapping extension id -> active directory name.
+  @discardableResult
+  func writeVSCodeRegistry(_ active: [String: String]) throws -> URL {
+    let ext = try makeDir(".vscode/extensions")
+    let entries = active.map { id, rel in ["identifier": ["id": id], "relativeLocation": rel] }
+    try JSONSerialization.data(withJSONObject: entries)
+      .write(to: ext.appending(path: "extensions.json"))
+    return ext
+  }
+
   // Create intermediate dirs then write `bytes` at a relative path (returns the file URL).
   @discardableResult
   func writeFile(_ rel: String, bytes: Data) throws -> URL {

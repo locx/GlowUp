@@ -235,6 +235,9 @@ public final class AppModel: ObservableObject {
   /// Bundled catalog location, exposed so views never touch GlowKit services directly.
   public var catalogURL: URL? { CatalogLoader.bundledURL }
 
+  /// Resolves a default report-folder name to its on-disk URL so the UI can reveal it in Finder.
+  public func reportFolderURL(named name: String) -> URL { home.appending(path: name) }
+
   // Listing the always-present, TCC-gated com.apple.TCC dir succeeds only with Full Disk Access.
   static func hasFullDiskAccess(home: URL) -> Bool {
     let probe = home.appending(path: "Library/Application Support/com.apple.TCC")

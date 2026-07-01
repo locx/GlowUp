@@ -45,7 +45,7 @@ struct ReportsView: View {
               .foregroundStyle(Color.textSecondary)
             VStack(alignment: .leading, spacing: 2) {
               Text(report.url.lastPathComponent).font(.body).lineLimit(1)
-              Text(report.url.path).font(.caption).foregroundStyle(Color.textSecondary).lineLimit(1)
+              RevealPathLabel(url: report.url)
             }
             Spacer()
             Text(ReclaimLabel.format(report.bytes)).monospacedDigit().foregroundStyle(Color.textSecondary)
@@ -90,16 +90,23 @@ struct ReportsView: View {
           .buttonStyle(.glowSecondary).disabled(model.isBusy)
         Button("Add folder…") { pickFolder() }.buttonStyle(.glowPrimary)
       }
-      ForEach(defaultFolders, id: \.self) { folderRow(name: $0, removable: nil) }
-      ForEach(model.reportFolders, id: \.path) { folderRow(name: $0.lastPathComponent, removable: $0) }
+      ForEach(defaultFolders, id: \.self) {
+        folderRow(url: model.reportFolderURL(named: $0), name: $0, removable: nil)
+      }
+      ForEach(model.reportFolders, id: \.path) {
+        folderRow(url: $0, name: $0.lastPathComponent, removable: $0)
+      }
     }
     .padding(.horizontal, 20).padding(.vertical, 10)
   }
 
-  private func folderRow(name: String, removable: URL?) -> some View {
+  private func folderRow(url: URL, name: String, removable: URL?) -> some View {
     HStack(spacing: 8) {
       Image(systemName: "folder").foregroundStyle(Color.textSecondary).frame(width: 20)
-      Text(name).font(.body).foregroundStyle(Color.textPrimary).lineLimit(1)
+      Button { RevealInFinder.reveal(url) } label: {
+        Text(name).font(.body).foregroundStyle(Color.textPrimary).lineLimit(1)
+      }
+      .buttonStyle(.plain).help("Reveal in Finder")
       Spacer()
       if let url = removable {
         Button { model.removeReportFolder(url) } label: {

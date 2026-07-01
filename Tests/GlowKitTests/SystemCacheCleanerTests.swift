@@ -26,7 +26,7 @@ final class SystemCacheCleanerTests: XCTestCase {
       URL(fileURLWithPath: "/Library/Caches/com.foo"),
       URL(fileURLWithPath: "/Library/Caches/with space"),
     ])
-    XCTAssertEqual(cmd, "/bin/rm -rf '/Library/Caches/com.foo' '/Library/Caches/with space'")
+    XCTAssertEqual(cmd, "/bin/rm -rf -- '/Library/Caches/com.foo' '/Library/Caches/with space'")
   }
 
   func test_removalCommandRejectsDotDotEscapingScope() {
@@ -44,7 +44,7 @@ final class SystemCacheCleanerTests: XCTestCase {
     let cmd = SystemCacheCleaner.removalCommand([
       URL(fileURLWithPath: "/Library/Caches/o'brien"),
     ])
-    XCTAssertEqual(cmd, "/bin/rm -rf '/Library/Caches/o'\\''brien'")
+    XCTAssertEqual(cmd, "/bin/rm -rf -- '/Library/Caches/o'\\''brien'")
   }
 
   func test_cleanRefusesOutOfScopeWithoutRunning() {
@@ -56,7 +56,7 @@ final class SystemCacheCleanerTests: XCTestCase {
   func test_cleanRunsForValidScope() {
     let r = FakeRunner()
     XCTAssertTrue(SystemCacheCleaner.clean([URL(fileURLWithPath: "/Library/Caches/com.foo")], runner: r))
-    XCTAssertEqual(r.received, "/bin/rm -rf '/Library/Caches/com.foo'")
+    XCTAssertEqual(r.received, "/bin/rm -rf -- '/Library/Caches/com.foo'")
   }
 
   // Proves the ROOT runner seam end-to-end without touching real system caches: point the
@@ -77,7 +77,15 @@ final class SystemCacheCleanerTests: XCTestCase {
 
     let r = FakeRunner()
     XCTAssertTrue(SystemCacheCleaner.clean([child], runner: r, root: resolvedRoot))
-    XCTAssertEqual(r.received, "/bin/rm -rf '\(resolvedChild)'")
+    XCTAssertEqual(r.received, "/bin/rm -rf -- '\(resolvedChild)'")
+  }
+
+  func test_removalCommandUsesEndOfOptionsForFlagLikeNames() {
+    // A cache dir named like a flag must be an operand, never an rm option.
+    let cmd = SystemCacheCleaner.removalCommand([
+      URL(fileURLWithPath: "/Library/Caches/-rf"),
+    ])
+    XCTAssertEqual(cmd, "/bin/rm -rf -- '/Library/Caches/-rf'")
   }
 
   func test_removalCommandRejectsSymlinkResolvingOutsideScope() throws {
