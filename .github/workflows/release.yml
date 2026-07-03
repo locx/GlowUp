@@ -1,17 +1,23 @@
 name: Release
 
+# Tag-driven, free distribution: tag vX.Y.Z with an annotation whose subject is the
+# release title (e.g. `git tag -a v0.0.1 -m "Beta 1"`). Builds an ad-hoc-signed DMG and
+# publishes it as a pre-release — no Apple Developer ID or repository secrets required.
 on:
   push:
     tags: [ "v*" ]
 
-# Requires maintainer-provided secrets:
-#   MACOS_CERT_P12_BASE64, MACOS_CERT_PASSWORD, KEYCHAIN_PASSWORD,
-#   AC_API_KEY_ID, AC_API_ISSUER_ID, AC_API_KEY_P8_BASE64, DEVELOPER_ID_APP
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: macos-14
     steps:
+      # Full history so the annotated tag object (release title) is available.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Build release
         run: swift build -c release --product GlowUpApp
@@ -22,42 +28,34 @@ jobs:
       - name: Assemble app bundle + DMG
         run: bash packaging/make-dmg.sh
 
-      - name: Import signing certificate
-        env:
-          CERT: ${{ secrets.MACOS_CERT_P12_BASE64 }}
-          CERT_PW: ${{ secrets.MACOS_CERT_PASSWORD }}
-          KC_PW: ${{ secrets.KEYCHAIN_PASSWORD }}
+      # Ad-hoc signature is the minimum for an arm64 bundle to launch; it is NOT notarization.
+      - name: Ad-hoc sign
         run: |
-          echo "$CERT" | base64 --decode > /tmp/cert.p12
-          security create-keychain -p "$KC_PW" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KC_PW" build.keychain
-          security import /tmp/cert.p12 -k build.keychain -P "$CERT_PW" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" build.keychain
-
-      - name: Codesign (hardened runtime)
-        env:
-          DEV_ID: ${{ secrets.DEVELOPER_ID_APP }}
-        run: |
-          codesign --force --options runtime --timestamp \
-            --entitlements packaging/GlowUp.entitlements \
-            --sign "$DEV_ID" dist/GlowUp.app
+          codesign --force --deep --sign - dist/GlowUp.app
+          codesign --verify --strict dist/GlowUp.app
 
       - name: Repackage the signed app into the DMG
         run: hdiutil create -volname "GlowUp" -srcfolder dist/GlowUp.app -ov -format UDZO dist/GlowUp.dmg
 
-      - name: Notarize + staple
-        env:
-          KEY_ID: ${{ secrets.AC_API_KEY_ID }}
-          ISSUER: ${{ secrets.AC_API_ISSUER_ID }}
-          KEY_P8: ${{ secrets.AC_API_KEY_P8_BASE64 }}
+      - name: Release title from the tag annotation
+        id: meta
         run: |
-          echo "$KEY_P8" | base64 --decode > /tmp/ac_key.p8
-          xcrun notarytool submit dist/GlowUp.dmg \
-            --key /tmp/ac_key.p8 --key-id "$KEY_ID" --issuer "$ISSUER" --wait
-          xcrun stapler staple dist/GlowUp.dmg
+          name="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents:subject)')"
+          [ -n "$name" ] || name="${GITHUB_REF_NAME}"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
 
-      - name: Publish release
+      - name: Publish pre-release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ steps.meta.outputs.name }}
+          prerelease: true
+          fail_on_unmatched_files: true
           files: dist/GlowUp.dmg
+          body: |
+            **Unsigned (ad-hoc) build — free and open source (MIT), not notarized.**
+
+            macOS quarantines a downloaded, unsigned app. After moving GlowUp to /Applications, clear it once:
+
+                xattr -dr com.apple.quarantine /Applications/GlowUp.app
+
+            Or build from source: `swift build -c release --product GlowUpApp`

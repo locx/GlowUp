@@ -14,7 +14,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${VERSION:-v0.1.0}"
+VERSION="${VERSION:-v0.0.1}"
 DIST="${ROOT}/dist"
 APP="${DIST}/GlowUp.app"
 DMG="${DIST}/GlowUp.dmg"
@@ -45,6 +45,7 @@ echo "  sha256(dmg) = ${SHA}"
 if [ "${PUBLISH:-0}" = "1" ]; then
   command -v gh >/dev/null 2>&1 || { echo "gh CLI required to publish" >&2; exit 2; }
   gh release create "${VERSION}" "${DMG}" \
+    --prerelease \
     --title "GlowUp ${VERSION}" \
     --notes "Unsigned (ad-hoc) build — not notarized.
 
