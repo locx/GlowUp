@@ -40,7 +40,9 @@ jobs:
       - name: Release title from the tag annotation
         id: meta
         run: |
-          name="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents:subject)')"
+          # checkout can materialize the tag as lightweight; refetch to get the annotation.
+          git fetch --force --tags
+          name="$(git tag -l --format='%(contents:subject)' "${GITHUB_REF_NAME}")"
           [ -n "$name" ] || name="${GITHUB_REF_NAME}"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
